@@ -1,13 +1,14 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
+import customtkinter as ctk
+from tkinter import messagebox
 import sqlite3
 
 conn = sqlite3.connect("House points")
 cursor = conn.cursor()
 
-window = tk.Tk()
+window = ctk.CTk()
 window.title('House Points System')
 window.geometry('1000x600')
+ctk.set_appearance_mode("light")
 
 class User:
     def __init__(self, password, first_name, last_name):
@@ -26,7 +27,7 @@ class User:
                 StudentHouse = user[0][5]
                 StudentPoints = user[0][6]
                 student = Student(user, Id, password, first_name, last_name, StudentHouse, StudentPoints)
-                StudentHome(student, Id, first_name, last_name)
+                StudentHome(student)
             else:
                 messagebox.showerror("Login Failed", "Invalid Id or password.")
         elif selected_value.get() == 'Teacher':
@@ -50,11 +51,11 @@ class Student(User):
             self.student_house = StudentHouse
             self.student_points = StudentPoints
 
-        def UpdateFields(self, Id, FirstName_entry, LastName_entry):
+        def UpdateFields(self, FirstName_entry, LastName_entry):
             NewFirstName = FirstName_entry.get()
             NewLastName = LastName_entry.get()
-            cursor.execute("UPDATE Student SET first_name = ? WHERE student_id = ?", (NewFirstName,Id,))
-            cursor.execute("UPDATE Student SET last_name = ? WHERE student_id = ?", (NewLastName, Id,))
+            cursor.execute("UPDATE Student SET first_name = ? WHERE student_id = ?", (NewFirstName, self.student_id,))
+            cursor.execute("UPDATE Student SET last_name = ? WHERE student_id = ?", (NewLastName, self.student_id,))
             conn.commit()
             self.student_first_name = NewFirstName
             self.student_last_name = NewLastName
@@ -63,94 +64,94 @@ def remove_widgets():
     for widget in window.winfo_children():
         widget.destroy()
 
-def GetHouseColor(StudentHouse):
-    if StudentHouse == 1:
+def GetHouseColor(user):
+    if user.student_house == 1:
         color = '#0A8B0B'
         return color
-    elif StudentHouse == 2:
+    elif user.student_house == 2:
         color = '#FFC300'
         return color
-    elif StudentHouse == 3:
+    elif user.student_house == 3:
         color = '#000000'
         return color
-    elif StudentHouse == 4:
+    elif user.student_house == 4:
         color = '#0012C4'
         return color
 
 def Loginpage():
-    login_frame = tk.Frame(window, bg='light grey')
+    login_frame = ctk.CTkFrame(window, fg_color='light grey')
     login_frame.pack(fill='both', expand=True)
 
-    titleLabel = tk.Label(login_frame, text='ASCS House Points', font='Impact 50', bg='light grey')
+    titleLabel = ctk.CTkLabel(login_frame, text='ASCS House Points', font=('Impact', 50), fg_color='light grey')
     titleLabel.pack(pady=50)
 
-    input_frame = tk.Frame(login_frame, bg='light grey')
+    input_frame = ctk.CTkFrame(login_frame, fg_color='light grey')
     input_frame.pack()
 
-    tk.Label(input_frame, text='ID', font='Impact 12', bg='light grey').grid(row=0, column=0)
-    tk.Label(input_frame, text='Password', font='Impact 12', bg='light grey').grid(row=1, column=0)
+    ctk.CTkLabel(input_frame, text='ID', font=('Impact', 12), fg_color='light grey').grid(row=0, column=0)
+    ctk.CTkLabel(input_frame, text='Password', font=('Impact', 12), fg_color='light grey').grid(row=1, column=0)
 
-    Id_entry = tk.Entry(input_frame)
+    Id_entry = ctk.CTkEntry(input_frame)
     Id_entry.grid(row=0, column=1, padx=5, pady=10)
 
-    password_entry = tk.Entry(input_frame, show='*')
+    password_entry = ctk.CTkEntry(input_frame, show='*')
     password_entry.grid(row=1, column=1, padx=5, pady=5)
 
-    selected_value = tk.StringVar()
+    selected_value = ctk.StringVar()
     options = ["Teacher", "Student"]
-    combobox = ttk.Combobox(input_frame, values=options, state='readonly', textvariable=selected_value)
+    combobox = ctk.CTkComboBox(input_frame, values=options, state='readonly', variable=selected_value)
     combobox.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
     combobox.set("Select an option")
 
-    tk.Button(input_frame, text='Submit', command=lambda:User.login(selected_value, Id_entry, password_entry)).grid(row=3, columnspan=2, pady=10)
+    ctk.CTkButton(input_frame, text='Submit', command=lambda:User.login(selected_value, Id_entry, password_entry)).grid(row=3, columnspan=2, pady=10)
 
-def StudentHome(user, Id, first_name, last_name):
+def StudentHome(user):
     remove_widgets()
-    StudentName = str(first_name + ' ' + last_name)
-    color = GetHouseColor(StudentHouse)
+    StudentName = str(user.student_first_name + ' ' + user.student_last_name)
+    color = GetHouseColor(user)
 
-    StudentHome_frame = tk.Frame(window, bg='light grey')
+    StudentHome_frame = ctk.CTkFrame(window, fg_color='light grey')
     StudentHome_frame.pack(fill='both', expand=True)
 
-    options_frame = tk.Frame(StudentHome_frame, bg=color, width=200, height=600, highlightthickness=1, highlightbackground="black")
-    options_frame.pack(side=tk.LEFT, fill='y', expand=False)
+    options_frame = ctk.CTkFrame(StudentHome_frame, fg_color=color, width=200, height=600)
+    options_frame.pack(side='left', fill='y', expand=False)
 
-    manage_acc_btn = tk.Button(options_frame, command=lambda:StudentAccManagement(user, Id, first_name, last_name, color), text='Account Management', font=('Impact', 13), fg='black', bg='light grey')
+    manage_acc_btn = ctk.CTkButton(options_frame, command=lambda:StudentAccManagement(user,color), text='Account Management', font=('Impact', 13), text_color='black', fg_color='light grey')
     manage_acc_btn.place(x=0, y=200)
 
-    logout_btn = tk.Button(options_frame, command=lambda:logout(user), text='Log out', font=('Impact', 13), fg='black', bg='light grey')
+    logout_btn = ctk.CTkButton(options_frame, command=lambda:logout(user), text='Log out', font=('Impact', 13), text_color='black', fg_color='light grey')
     logout_btn.place(x=0, y=325)
 
-    StudentPoints_label = tk.Label(StudentHome_frame, text=("Total Points:  {}".format(StudentPoints)), highlightthickness=1, highlightbackground="black")
-    StudentPoints_label.config(font=('Impact', 13), width=20, height=2) 
+    StudentPoints_label = ctk.CTkLabel(StudentHome_frame, text=("Total Points:  {}".format(user.student_points)))
+    StudentPoints_label.configure(font=('Impact', 13), width=20, height=2) 
     StudentPoints_label.place(relx=1, rely=0, x=-15, y=0, anchor='ne')
     
-    StudentName_label = tk.Label(StudentHome_frame, text=StudentName, highlightthickness=1, highlightbackground="black")
-    StudentName_label.config(font=('Impact', 13), width=15, height=2)
+    StudentName_label = ctk.CTkLabel(StudentHome_frame, text=StudentName)
+    StudentName_label.configure(font=('Impact', 13), width=15, height=2)
     StudentName_label.place(x=200, y=0)
 
-def StudentAccManagement(user, Id, first_name, last_name, color):
+def StudentAccManagement(user, color):
     remove_widgets()
-    StudentAccManagement_frame = tk.Frame(window, bg='light grey')
+    StudentAccManagement_frame = ctk.CTkFrame(window, fg_color='light grey')
     StudentAccManagement_frame.pack(fill='both', expand=True)
 
-    options_frame = tk.Frame(StudentAccManagement_frame, bg=color, width=200, height=600, highlightthickness=1, highlightbackground="black")
-    options_frame.pack(side=tk.LEFT, fill='y', expand=False)
+    options_frame = ctk.CTkFrame(StudentAccManagement_frame, fg_color=color, width=200, height=600)
+    options_frame.pack(side='left', fill='y', expand=False)
 
-    back_btn = tk.Button(options_frame, command=lambda:StudentHome(user, Id ,first_name, last_name), text='Back', font=('Impact', 15), fg='black', bg='light grey')
+    back_btn = ctk.CTkButton(options_frame, command=lambda:StudentHome(user), text='Back', font=('Impact', 15), text_color='black', fg_color='light grey')
     back_btn.place(x=0, y=500)
 
-    tk.Label(StudentAccManagement_frame, text ='First name', font='Impact 11', bg='light grey').place(x=340, y=200)
-    FirstName_entry =  tk.Entry(StudentAccManagement_frame)
-    FirstName_entry.insert(0,first_name)
+    ctk.CTkLabel(StudentAccManagement_frame, text ='First name', font=('Impact', 11), fg_color='light grey').place(x=340, y=200)
+    FirstName_entry =  ctk.CTkEntry(StudentAccManagement_frame)
+    FirstName_entry.insert(0,user.student_first_name)
     FirstName_entry.place(x=440, y=200)
 
-    tk.Label(StudentAccManagement_frame, text ='Last name', font='Impact 11', bg='light grey').place(x=340, y=225)
-    LastName_entry = tk.Entry(StudentAccManagement_frame)
-    LastName_entry.insert(0,last_name)
+    ctk.CTkLabel(StudentAccManagement_frame, text ='Last name', font=('Impact', 11), fg_color='light grey').place(x=340, y=225)
+    LastName_entry = ctk.CTkEntry(StudentAccManagement_frame)
+    LastName_entry.insert(0,user.student_last_name)
     LastName_entry.place(x=440, y=225)
 
-    tk.Button(StudentAccManagement_frame, text='Submit', command=lambda:Student.UpdateFields(Id, FirstName_entry, LastName_entry)).place(x=500, y=300)
+    ctk.CTkButton(StudentAccManagement_frame, text='Submit', command=lambda:user.UpdateFields(FirstName_entry, LastName_entry)).place(x=500, y=300)
 
 def logout(user):
     del user
