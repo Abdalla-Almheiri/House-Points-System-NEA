@@ -1,4 +1,3 @@
-        
 def database():
     import sqlite3
 
@@ -50,12 +49,24 @@ def database():
             password VARCHAR(20),
             first_name VARCHAR(15),
             last_name VARCHAR(15),
-            grade INTEGER,
+            grade VARCHAR(3),
             house_id INTEGER,
             total_points INTEGER,
             leaderboard_position INTEGER,
             PRIMARY KEY (student_id),
             FOREIGN KEY (house_id) REFERENCES House(house_id)
+        );
+    ''')
+
+    #Student_Token_Ownership table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Student_Token_Ownership (
+            student_id INTEGER,
+            token_id INTEGER,
+            quantity INTEGER,
+            PRIMARY KEY (student_id, token_id),
+            FOREIGN KEY (student_id) REFERENCES Student(student_id),
+            FOREIGN KEY (token_id) REFERENCES Token(token_id)
         );
     ''')
 
@@ -66,7 +77,7 @@ def database():
             student_id INTEGER,
             teacher_id INTEGER,
             points INTEGER,
-            date_awarded DATETIME,
+            date_created DATETIME,
             PRIMARY KEY (record_id),
             FOREIGN KEY (student_id) REFERENCES Student(student_id),
             FOREIGN KEY (teacher_id) REFERENCES Teacher(teacher_id)
@@ -76,21 +87,37 @@ def database():
     #Purchase_token table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS Purchase_token (
-            purchase_id INTEGER,
+            purchase_id INTEGER PRIMARY KEY AUTOINCREMENT,
             student_id INTEGER,
             token_id INTEGER,
             purchase_date DATETIME,
-            PRIMARY KEY (purchase_id),
             FOREIGN KEY (student_id) REFERENCES Student(student_id),
             FOREIGN KEY (token_id) REFERENCES Token(token_id)
         );
     ''')
 
+    #Adding houses
     cursor.execute("INSERT INTO House (house_id, house_name) VALUES (1,'Gazelles');")
     cursor.execute("INSERT INTO House (house_id, house_name) VALUES (2,'Oryxes');")
     cursor.execute("INSERT INTO House (house_id, house_name) VALUES (3,'Foxes');")
     cursor.execute("INSERT INTO House (house_id, house_name) VALUES (4,'Falcons');")
-    cursor.execute("INSERT INTO Student (student_id, first_name, last_name, password, grade, house_id, total_points) VALUES (1899,'Arthur','Morgan','hosea', 13, 1, 0);")
+
+    #Adding tokens
+    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES (1, 'Dress Code Exemption', 750, 'Student is allowed to spend one day wearing non-uniform clothing')")
+    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES ( 2, 'Cafeteria coupon', 250, 'Student is able to recieve 1 free meal from the school cafeteria without being charged')")
+    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES ( 3, '1 day off', 1500, 'Student is allowed one day of registered abscence (provided that their teachers all allow it)')")
+
+    #Adding default values for tests
+    cursor.execute("INSERT INTO Student (student_id, first_name, last_name, password, grade, house_id, total_points) VALUES (1899,'Arthur','Morgan','hosea', '13A', 1, 1000);")
+    cursor.execute("INSERT INTO Student (student_id, first_name, last_name, password, grade, house_id, total_points) VALUES (1,'John','Doe','1', '13C', 2, 1500);")
+    cursor.execute("INSERT INTO Teacher (teacher_id, first_name, last_name, password) VALUES (1, 'Walter', 'White', '1')")
 
     conn.commit()
     conn.close()
+
+    #Note: If updating database,
+    #do NOT
+    #FORGET
+    #TO RE-ADD
+    #THE FUNCTION
+    #!!!!!!!!!!!!!!!!!!!
