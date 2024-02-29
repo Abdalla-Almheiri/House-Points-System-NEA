@@ -103,9 +103,9 @@ def database():
     cursor.execute("INSERT INTO House (house_id, house_name) VALUES (4,'Falcons');")
 
     #Adding tokens
-    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES (1, 'Dress Code Exemption', 750, 'Student is allowed to spend one day wearing non-uniform clothing')")
-    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES ( 2, 'Cafeteria coupon', 250, 'Student is able to recieve 1 free meal from the school cafeteria without being charged')")
-    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES ( 3, '1 day off', 1500, 'Student is allowed one day of registered abscence (provided that their teachers all allow it)')")
+    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES (1, 'Dress Code Exemption', 750, 'Student is allowed to spend one day\nwearing non-uniform clothing\n( 750 points )')")
+    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES ( 2, 'Cafeteria coupon', 250, 'Student recieves 1 free meal\nfrom the school cafeteria\n( 250 points )')")
+    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES ( 3, '1 day off', 1500, 'Student is allowed one day\nof registered abscence (provided that\ntheir teachers all allow it)\n( 1500 points )')")
 
     #Adding default values for tests
     cursor.execute("INSERT INTO Student (student_id, first_name, last_name, password, grade, house_id, total_points) VALUES (1899,'Arthur','Morgan','hosea', '13A', 1, 1000);")
