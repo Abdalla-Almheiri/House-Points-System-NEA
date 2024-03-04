@@ -80,10 +80,8 @@ class Student(User):
             remove_widgets()
             StudentHome(student)
 
-        def PurchaseToken(self, student, token_id):
+        def PurchaseToken(self, window, student, token_id):
             purchase_date =  datetime.now().strftime('%Y-%m-%d')
-            cursor.execute("INSERT INTO Purchase_token (student_id, token_id, purchase_date) VALUES (?, ?, ?);", (self.student_id, token_id, purchase_date))
-            conn.commit()
             point_cost = cursor.execute("SELECT point_cost FROM Token WHERE token_id = ?", (token_id,)).fetchone()
             new_sum = self.student_points - point_cost[0]
             if new_sum < 0:
@@ -92,6 +90,7 @@ class Student(User):
                 cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_sum, self.student_id))
                 conn.commit()
             else:
+                cursor.execute("INSERT INTO Purchase_token (student_id, token_id, purchase_date) VALUES (?, ?, ?);", (self.student_id, token_id, purchase_date))
                 cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_sum, self.student_id))
                 conn.commit()
                 messagebox.showinfo('',"Token purchased!")
@@ -263,7 +262,6 @@ def ViewPurchaseHistoryPage(student, color):
     # put into scrollable frame
     # WAN BILLION DOLLARS!!!!
 
-
 def TokenShopPage(student, color, StudentName):
     remove_widgets()
     token_name = {1:"Dress code exemption", 2:"Cafeteria coupon", 3:"One day off", 4:"null"}
@@ -309,15 +307,16 @@ def TokenShopPage(student, color, StudentName):
 
         ctk.CTkLabel(confirmPurchase_window, text=('Are you sure you want to purchase this "{}" token?').format(token_name), font=('Impact', 17)).place(x=125, y=35)
 
-        confirm_btn = ctk.CTkButton(confirmPurchase_window, text='Yes', command=lambda: purchase_and_close(confirmPurchase_window, student, token_id))
+        confirm_btn = ctk.CTkButton(confirmPurchase_window, text='Yes', command=lambda: purchase_and_close(confirmPurchase_window, student, token_id, color, StudentName))
         confirm_btn.place(x=425, y=85)
 
         cancel_btn = ctk.CTkButton(confirmPurchase_window, text='No', command=confirmPurchase_window.destroy)
         cancel_btn.place(x=175, y=85)
 
-def purchase_and_close(window, student, token_id):
-    student.PurchaseToken(student, token_id)
+def purchase_and_close(window, student, token_id, color, StudentName):
+    student.PurchaseToken(window, student, token_id)
     window.destroy()
+    TokenShopPage(student, color, StudentName)
 
 def logout(user):
     del user
