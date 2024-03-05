@@ -130,18 +130,18 @@ def GetTokenId(token_name):
 def GetTokenDesc(token_id):
     desc = cursor.execute("SELECT description FROM Token where token_id = ?",(token_id,)).fetchone()
     return desc[0]
-
+    
 def GetRecordRows(Records, Records_frame):
-    for record in Records:
+    for i, record in enumerate(Records):
         column1 = ctk.CTkButton(Records_frame, text=f'{record[0]}', font=('Impact', 20), text_color='black', fg_color='white', border_width=2, width=150, height=25, state='disabled')
-        column1.place(x=0)
+        column1.place(relx=0, rely = i / 10)
 
         column2 = ctk.CTkButton(Records_frame, text=f'{record[1]}', font=('Impact', 20), text_color='black', fg_color='white', border_width=2, width=150, height=25, state='disabled')
-        column2.place(x=150)
+        column2.place(relx=0.33, y = i / 10)
 
         column3 = ctk.CTkButton(Records_frame, text=f'{record[2]}', font=('Impact', 20), text_color='black', fg_color='white', border_width=2, width=150, height=25, state='disabled')
-        column3.place(x=300)
-
+        column3.place(relx=0.66, y = i / 10)
+        
 def CreateStudentPage():
     remove_widgets()
     CreateAcc_frame = ctk.CTkFrame(window, fg_color='light grey')
