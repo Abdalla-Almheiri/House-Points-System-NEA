@@ -10,6 +10,7 @@ def database():
     cursor.execute("DROP TABLE IF EXISTS House_points_record;")
     cursor.execute("DROP TABLE IF EXISTS Purchase_token;")
     cursor.execute("DROP TABLE IF EXISTS Token;")
+    cursor.execute("DROP TABLE IF EXISTS Student_token_ownership;")
 
     #Teacher table
     cursor.execute('''
@@ -60,7 +61,7 @@ def database():
 
     #Student_Token_Ownership table
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS Student_Token_Ownership (
+        CREATE TABLE IF NOT EXISTS Student_token_ownership (
             student_id INTEGER,
             token_id INTEGER,
             quantity INTEGER,
@@ -111,6 +112,12 @@ def database():
     cursor.execute("INSERT INTO Student (student_id, first_name, last_name, password, grade, house_id, total_points) VALUES (1899,'Arthur','Morgan','hosea', '13A', 1, 1000);")
     cursor.execute("INSERT INTO Student (student_id, first_name, last_name, password, grade, house_id, total_points) VALUES (1,'John','Doe','1', '13C', 2, 1500);")
     cursor.execute("INSERT INTO Teacher (teacher_id, first_name, last_name, password) VALUES (1, 'Walter', 'White', '1')")
+    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1899, 1, 0)")
+    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1899, 2, 0)")
+    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1899, 3, 0)")
+    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1, 1, 0)")
+    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1, 2, 0)")
+    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1, 3, 0)")
 
     conn.commit()
     conn.close()
