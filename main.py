@@ -3,7 +3,6 @@ from tkinter import messagebox
 import sqlite3
 from datetime import datetime
 
-
 conn = sqlite3.connect("House points")
 cursor = conn.cursor()
 
@@ -64,6 +63,9 @@ class Student(User):
             houseId = GetHouseID(selected_house)
             cursor.execute("INSERT INTO Student (student_ID, password, first_name, last_name, grade, house_id, total_points, leaderboard_position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (Id, password, first_name, last_name, grade, houseId, 0, 0))
             conn.commit()
+            for i in range(1,4):
+                cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (?, ?, ?)", (Id, i, 0))
+                conn.commit()
             messagebox.showinfo('',"Account created successfully")
             remove_widgets()
             Loginpage()
@@ -80,17 +82,20 @@ class Student(User):
             remove_widgets()
             StudentHome(student)
 
-        def PurchaseToken(self, window, student, token_id):
+        def PurchaseToken(self, token_id):
             purchase_date =  datetime.now().strftime('%Y-%m-%d')
             point_cost = cursor.execute("SELECT point_cost FROM Token WHERE token_id = ?", (token_id,)).fetchone()
             new_sum = self.student_points - point_cost[0]
             if new_sum < 0:
                 messagebox.showerror('',"Insufficient number of points, no points deducted")
                 new_sum = 0
-                cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_sum, self.student_id))
+                cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_sum, self.student_id,))
                 conn.commit()
             else:
                 cursor.execute("INSERT INTO Purchase_token (student_id, token_id, purchase_date) VALUES (?, ?, ?);", (self.student_id, token_id, purchase_date))
+                intial_quantity = cursor.execute("SELECT quantity FROM Student_token_ownership WHERE student_id = ? AND token_id = ?", (self.student_id, token_id,)).fetchone()
+                new_quantity = intial_quantity[0] + 1
+                cursor.execute("UPDATE Student_token_ownership SET quantity = ? WHERE student_id = ? AND token_id = ?", (new_quantity, self.student_id, token_id,))
                 cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_sum, self.student_id))
                 conn.commit()
                 messagebox.showinfo('',"Token purchased!")
@@ -125,6 +130,17 @@ def GetTokenId(token_name):
 def GetTokenDesc(token_id):
     desc = cursor.execute("SELECT description FROM Token where token_id = ?",(token_id,)).fetchone()
     return desc[0]
+
+def GetRecordRows(Records, Records_frame):
+    for record in Records:
+        column1 = ctk.CTkButton(Records_frame, text=f'{record[0]}', font=('Impact', 20), text_color='black', fg_color='white', border_width=2, width=150, height=25, state='disabled')
+        column1.place(x=0)
+
+        column2 = ctk.CTkButton(Records_frame, text=f'{record[1]}', font=('Impact', 20), text_color='black', fg_color='white', border_width=2, width=150, height=25, state='disabled')
+        column2.place(x=150)
+
+        column3 = ctk.CTkButton(Records_frame, text=f'{record[2]}', font=('Impact', 20), text_color='black', fg_color='white', border_width=2, width=150, height=25, state='disabled')
+        column3.place(x=300)
 
 def CreateStudentPage():
     remove_widgets()
@@ -225,8 +241,11 @@ def StudentHome(student):
     StudentName_label = ctk.CTkLabel(StudentHome_frame, text=StudentName, font=('Impact', 17), width=15, height=2)
     StudentName_label.place(x=200, y=0)
 
-    Shop_btn = ctk.CTkButton(StudentHome_frame, command=lambda:TokenShopPage(student, color, StudentName), text='Token\nShop', font=('Impact', 25), text_color='black', fg_color='white', height= 130, width=130, border_width=1)
-    Shop_btn.place(x=650, y=325)
+    Shop_btn = ctk.CTkButton(StudentHome_frame, command=lambda:TokenShopPage(student, color, StudentName), text='Token\nShop', font=('Impact', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
+    Shop_btn.place(x=665, y=300)
+
+    history_btn = ctk.CTkButton(StudentHome_frame, command=lambda:ViewPurchaseHistoryPage(student, color), text='View\nPurchase\nHistory', font=('Impact', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
+    history_btn.place(x=365, y=300)
 
 def StudentAccManagementPage(student, color):
     remove_widgets()
@@ -255,12 +274,23 @@ def StudentAccManagementPage(student, color):
 
 def ViewPurchaseHistoryPage(student, color):
     remove_widgets()
-    # do money glitch and make like 5 purchases idk 
-    # have the records from purchase_token
-    # take allofem out as tuples
-    # puttem into a for loop (if possible)
-    # put into scrollable frame
-    # WAN BILLION DOLLARS!!!!
+    Records = cursor.execute("SELECT student_id, token_id, purchase_date FROM Purchase_token WHERE student_id = ?", (student.student_id,)).fetchall()
+    PurchaseHistory_frame = ctk.CTkFrame(window, fg_color='light grey')
+    PurchaseHistory_frame.pack(fill='both', expand=True)
+
+    options_frame = ctk.CTkFrame(PurchaseHistory_frame, fg_color=color, width=200, height=600)
+    options_frame.pack(side='left', fill='y', expand=False)
+
+    back_btn = ctk.CTkButton(options_frame, command=lambda:StudentHome(student), text='Back', font=('Impact', 15), text_color='black', fg_color='light grey', width=50, border_width=1)
+    back_btn.place(x=0, y=450)
+
+    Records_label = ctk.CTkLabel(PurchaseHistory_frame, text='My Purchases', font=('Impact', 20), text_color='black', width=400, height=50)
+    Records_label.place(x=265, y=150)
+
+    Records_frame = ctk.CTkScrollableFrame(window, width=450, height=450)
+    Records_frame.place(x=400, y=200)
+
+    GetRecordRows(Records, Records_frame)
 
 def TokenShopPage(student, color, StudentName):
     remove_widgets()
@@ -314,9 +344,9 @@ def TokenShopPage(student, color, StudentName):
         cancel_btn.place(x=175, y=85)
 
 def purchase_and_close(window, student, token_id, color, StudentName):
-    student.PurchaseToken(window, student, token_id)
+    student.PurchaseToken(token_id)
+    StudentHome(student)
     window.destroy()
-    TokenShopPage(student, color, StudentName)
 
 def logout(user):
     del user
