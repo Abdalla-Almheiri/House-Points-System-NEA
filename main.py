@@ -26,9 +26,10 @@ class User:
             if user[0][1] == password:
                 first_name = user[0][2]
                 last_name = user[0][3]
+                grade = user[0][4]
                 StudentHouse = user[0][5]
                 StudentPoints = user[0][6]
-                student = Student(user, Id, password, first_name, last_name, StudentHouse, StudentPoints)
+                student = Student(Id, password, first_name, last_name, grade, StudentHouse, StudentPoints)
                 StudentHome(student)
             else:
                 messagebox.showerror("Login Failed", "Invalid Id or password.")
@@ -45,30 +46,33 @@ class User:
             messagebox.showinfo("Login Failed", "Select Student or Teacher")
 
 class Student(User):
-        def __init__(self, user, Id, password, first_name, last_name, StudentHouse, StudentPoints):
+        def __init__(self, Id, password, first_name, last_name, grade, StudentHouse, StudentPoints):
             super().__init__(password, first_name, last_name)
             self.student_id = Id
             self.student_first_name = first_name
             self.student_last_name = last_name
-            self.student_grade = user[0][4]
+            self.student_grade = grade
             self.student_houseId = StudentHouse
             self.student_points = StudentPoints
 
         def CreateNewStudent(EnterFirstName, EnterLastName, EnterPassword, EnterId, selected_class, selected_house):
-            first_name = EnterFirstName.get()
-            last_name = EnterLastName.get()
-            password = EnterPassword.get()
-            Id = EnterId.get()
-            grade = selected_class.get()
-            houseId = GetHouseID(selected_house)
-            cursor.execute("INSERT INTO Student (student_ID, password, first_name, last_name, grade, house_id, total_points, leaderboard_position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (Id, password, first_name, last_name, grade, houseId, 0, 0))
-            conn.commit()
-            for i in range(1,4):
-                cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (?, ?, ?)", (Id, i, 0))
+            if KeyError:
+                messagebox.showerror('',"Account not created, all fields must be filled to create account")
+            else:
+                first_name = EnterFirstName.get()
+                last_name = EnterLastName.get()
+                password = EnterPassword.get()
+                Id = EnterId.get()
+                grade = selected_class.get()
+                houseId = GetHouseID(selected_house)
+                cursor.execute("INSERT INTO Student (student_ID, password, first_name, last_name, grade, house_id, total_points, leaderboard_position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (Id, password, first_name, last_name, grade, houseId, 0, 0))
                 conn.commit()
-            messagebox.showinfo('',"Account created successfully")
-            remove_widgets()
-            Loginpage()
+                for i in range(1,4):
+                    cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (?, ?, ?)", (Id, i, 0))
+                    conn.commit()
+                messagebox.showinfo('',"Account created successfully")
+                remove_widgets()
+                Loginpage()
 
         def UpdateStudentFields(self, FirstName_entry, LastName_entry, student):
             NewFirstName = FirstName_entry.get()
@@ -130,18 +134,7 @@ def GetTokenId(token_name):
 def GetTokenDesc(token_id):
     desc = cursor.execute("SELECT description FROM Token where token_id = ?",(token_id,)).fetchone()
     return desc[0]
-    
-def GetRecordRows(Records, Records_frame):
-    for i, record in enumerate(Records):
-        column1 = ctk.CTkButton(Records_frame, text=f'{record[0]}', font=('Impact', 20), text_color='black', fg_color='white', border_width=2, width=150, height=25, state='disabled')
-        column1.place(relx=0, rely = i / 10)
 
-        column2 = ctk.CTkButton(Records_frame, text=f'{record[1]}', font=('Impact', 20), text_color='black', fg_color='white', border_width=2, width=150, height=25, state='disabled')
-        column2.place(relx=0.33, y = i / 10)
-
-        column3 = ctk.CTkButton(Records_frame, text=f'{record[2]}', font=('Impact', 20), text_color='black', fg_color='white', border_width=2, width=150, height=25, state='disabled')
-        column3.place(relx=0.66, y = i / 10)
-        
 def CreateStudentPage():
     remove_widgets()
     CreateAcc_frame = ctk.CTkFrame(window, fg_color='light grey')
@@ -169,7 +162,7 @@ def CreateStudentPage():
     EnterPassword.place(x=350, y=275)
 
     selected_class = ctk.StringVar()
-    year_groups = ["Year 9A", "Year 9B", "Year 9C", "Year 9D", "Year 10A", "Year 10B", "Year 10C", "Year 10D", "Year 11A", "Year 11B", "Year 11C", "Year 11D", "Year 12A", "Year 12B", "Year 12C", "Year 12D", "Year 13A", "Year 13B", "Year 13C", "Year 13D"]
+    year_groups = ["9A", "9B", "9C", "9D", "10A", "10B", "10C", "10D", "11A", "11B", "11C", "11D", "12A", "12B", "12C", "12D", "13A", "13B", "13C", "13D"]
     combobox = ctk.CTkComboBox(CreateAcc_frame, values=year_groups,state='readonly', variable=selected_class)
     combobox.place(x=675, y=230)
     combobox.set("Classes (9-13)")
@@ -182,8 +175,23 @@ def CreateStudentPage():
     submit_btn = ctk.CTkButton(CreateAcc_frame, text='Create account', bg_color='black', command=lambda:Student.CreateNewStudent(EnterFirstName, EnterLastName, EnterPassword, EnterId, selected_class, selected_house.get()))
     submit_btn.place(x=450, y=350)
 
-    back_btn = ctk.CTkButton(CreateAcc_frame, command=lambda:Loginpage(), text='Back', font=('Impact', 15), text_color='black', fg_color='white', width=50, border_width=1)
-    back_btn.place(x=0, y=500)
+    back_btn = ctk.CTkButton(CreateAcc_frame, command=lambda:Loginpage(), text='Back', font=('Impact', 20), text_color='black', fg_color='white', width=190, height=50, border_width=1)
+    back_btn.place(x=3, y=500)
+
+def CommonWidgets(Mainframe, student, StudentName, color):
+    topbar_frame = ctk.CTkFrame(Mainframe, fg_color='white', border_width=2, border_color='black', width=800, height=60)
+    topbar_frame.place(x=198, y=0)
+    
+    StudentName_label = ctk.CTkButton(topbar_frame, text=StudentName, font=('Impact', 25), text_color='black', fg_color='white', border_width=2, width=150, height=60, hover='disabled')
+    StudentName_label.place(x=0, y=0)
+
+    StudentPoints_label = ctk.CTkLabel(topbar_frame, text=("Total Points:  {}".format(student.student_points)), font=('Impact', 25), width=35, height=20)
+    StudentPoints_label.place(x=600, y=10)
+    options_frame = ctk.CTkFrame(Mainframe, fg_color=color, border_width=2, border_color='black', width=200, height=600)
+    options_frame.pack(side='left', fill='y', expand=False)
+
+    back_btn = ctk.CTkButton(options_frame, command=lambda:StudentHome(student), text='Back', font=('Impact', 20), text_color='black', fg_color='light grey', width=190, height=50, border_width=1)
+    back_btn.place(x=3, y=500)
 
 def Loginpage():
     remove_widgets()
@@ -218,45 +226,48 @@ def Loginpage():
 def StudentHome(student):
     remove_widgets()
     StudentName = str(student.student_first_name + ' ' + student.student_last_name)
+    StudentClass = str(student.student_grade)
     color = GetHouseColor(student)
 
     StudentHome_frame = ctk.CTkFrame(window, fg_color='light grey')
     StudentHome_frame.pack(fill='both', expand=True)
 
-    options_frame = ctk.CTkFrame(StudentHome_frame, fg_color=color, width=200, height=600)
+    topbar_frame = ctk.CTkFrame(StudentHome_frame, fg_color='white', border_width=2, border_color='black', width=800, height=60)
+    topbar_frame.place(x=198, y=0)
+    
+    StudentName_label = ctk.CTkButton(topbar_frame, text=StudentName, font=('Impact', 25), text_color='black', fg_color='white', border_width=2, width=150, height=60, hover='disabled')
+    StudentName_label.place(x=0)
+
+    StudentClass_label = ctk.CTkButton(topbar_frame, text=StudentClass, font=('Impact', 25), text_color='black', fg_color='white', border_width=2, width=150, height=60, hover='disabled')
+    StudentClass_label.place(x=150)
+
+    StudentPoints_label = ctk.CTkLabel(topbar_frame, text=("Total Points:  {}".format(student.student_points)), font=('Impact', 25), width=35, height=20)
+    StudentPoints_label.place(x=600, y=10)
+
+    options_frame = ctk.CTkFrame(StudentHome_frame, fg_color=color, border_width=2, border_color='black', width=200, height=600)
     options_frame.pack(side='left', fill='y', expand=False)
 
-    manage_acc_btn = ctk.CTkButton(options_frame, command=lambda:StudentAccManagementPage(student,color), text='Account\nManagement', font=('Impact', 20), text_color='black', fg_color='light grey')
-    manage_acc_btn.place(x=0, y=175)
+    manage_acc_btn = ctk.CTkButton(options_frame, command=lambda:StudentAccManagementPage(student, StudentName, color), text='Account\nManagement', font=('Impact', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    manage_acc_btn.place(x=3, y=275)
 
-    view_purchases_btn = ctk.CTkButton(options_frame, text='View previous\npurchases',command=lambda:ViewPurchaseHistoryPage(student, color), font=('Impact', 20), text_color='black', fg_color='light grey')
-    view_purchases_btn.place(x=0, y=260)
+    empty_btn = ctk.CTkButton(options_frame, text='', font=('Impact', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    empty_btn.place(x=3, y=340)
 
-    logout_btn = ctk.CTkButton(options_frame, command=lambda:logout(student), text='Log out', font=('Impact', 20), text_color='black', fg_color='light grey')
-    logout_btn.place(x=0, y=350)
-
-    StudentPoints_label = ctk.CTkLabel(StudentHome_frame, text=("Total Points:  {}".format(student.student_points)), font=('Impact', 17), width=20, height=2)
-    StudentPoints_label.place(x=870, y=0)
-    
-    StudentName_label = ctk.CTkLabel(StudentHome_frame, text=StudentName, font=('Impact', 17), width=15, height=2)
-    StudentName_label.place(x=200, y=0)
+    logout_btn = ctk.CTkButton(options_frame, command=lambda:logout(student), text='Log out', font=('Impact', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    logout_btn.place(x=3, y=400)
 
     Shop_btn = ctk.CTkButton(StudentHome_frame, command=lambda:TokenShopPage(student, color, StudentName), text='Token\nShop', font=('Impact', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
     Shop_btn.place(x=665, y=300)
 
-    history_btn = ctk.CTkButton(StudentHome_frame, command=lambda:ViewPurchaseHistoryPage(student, color), text='View\nPurchase\nHistory', font=('Impact', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
+    history_btn = ctk.CTkButton(StudentHome_frame, command=lambda:ViewPurchaseHistoryPage(student, StudentName, color), text='View\nPurchase\nHistory', font=('Impact', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
     history_btn.place(x=365, y=300)
 
-def StudentAccManagementPage(student, color):
+def StudentAccManagementPage(student, StudentName, color):
     remove_widgets()
     StudentAccManagement_frame = ctk.CTkFrame(window, fg_color='light grey')
     StudentAccManagement_frame.pack(fill='both', expand=True)
 
-    options_frame = ctk.CTkFrame(StudentAccManagement_frame, fg_color=color, width=200, height=600)
-    options_frame.pack(side='left', fill='y', expand=False)
-
-    back_btn = ctk.CTkButton(options_frame, command=lambda:StudentHome(student), text='Back', font=('Impact', 15), text_color='black', fg_color='light grey', width=50, border_width=1)
-    back_btn.place(x=0, y=500)
+    CommonWidgets(StudentAccManagement_frame, student, StudentName, color)
 
     ctk.CTkLabel(StudentAccManagement_frame, text ='First name', font=('Impact', 11), fg_color='light grey').place(x=340, y=200)
     FirstName_entry =  ctk.CTkEntry(StudentAccManagement_frame)
@@ -272,25 +283,33 @@ def StudentAccManagementPage(student, color):
 
     ctk.CTkButton(StudentAccManagement_frame, text='Submit', command=lambda:student.UpdateStudentFields(FirstName_entry, LastName_entry, student)).place(x=500, y=300)
 
-def ViewPurchaseHistoryPage(student, color):
+def ViewPurchaseHistoryPage(student, StudentName, color):
     remove_widgets()
-    Records = cursor.execute("SELECT student_id, token_id, purchase_date FROM Purchase_token WHERE student_id = ?", (student.student_id,)).fetchall()
+    Records = cursor.execute("SELECT pt.purchase_id, t.token_name, pt.purchase_date FROM Purchase_token pt JOIN Token t ON pt.token_id = t.token_id").fetchall()
     PurchaseHistory_frame = ctk.CTkFrame(window, fg_color='light grey')
     PurchaseHistory_frame.pack(fill='both', expand=True)
 
-    options_frame = ctk.CTkFrame(PurchaseHistory_frame, fg_color=color, width=200, height=600)
-    options_frame.pack(side='left', fill='y', expand=False)
+    CommonWidgets(PurchaseHistory_frame, student, StudentName, color)
 
-    back_btn = ctk.CTkButton(options_frame, command=lambda:StudentHome(student), text='Back', font=('Impact', 15), text_color='black', fg_color='light grey', width=50, border_width=1)
-    back_btn.place(x=0, y=450)
+    PageTitle_label = ctk.CTkButton(PurchaseHistory_frame, text='My Purchases', font=('Impact', 50), text_color='black', fg_color='white', border_width=2, width=400, height=50, hover='disabled')
+    PageTitle_label.place(x=245, y=100)
 
-    Records_label = ctk.CTkLabel(PurchaseHistory_frame, text='My Purchases', font=('Impact', 20), text_color='black', width=400, height=50)
-    Records_label.place(x=265, y=150)
+    Records_frame = ctk.CTkScrollableFrame(window, bg_color='light grey', border_width=2, border_color='black', width=700, height=450)
+    Records_frame.place(x=245, y=190)
 
-    Records_frame = ctk.CTkScrollableFrame(window, width=450, height=450)
-    Records_frame.place(x=400, y=200)
+    column1 = ctk.CTkButton(Records_frame, text='Purchase ID', font=('Impact', 17), text_color='black', fg_color='white', border_width=2, width=233, height=20, hover='disabled')
+    column1.grid(row=0, column=0)
 
-    GetRecordRows(Records, Records_frame)
+    column2 = ctk.CTkButton(Records_frame, text='Token', font=('Impact', 17), text_color='black', fg_color='white', border_width=2, width=233, height=20, hover='disabled')
+    column2.grid(row=0, column=1)
+    
+    column3 = ctk.CTkButton(Records_frame, text='Date Purchased', font=('Impact', 17), text_color='black', fg_color='white', border_width=2, width=233, height=20, hover='disabled')
+    column3.grid(row=0, column=2)
+
+    for i, record in enumerate(Records):
+        for j, value in enumerate(record):
+            button = ctk.CTkButton(Records_frame, text=f'{value}', font=('Impact', 17), text_color='black', fg_color='white', border_width=2, width=233, height=20, hover='disabled')
+            button.grid(row=i+1, column=j)
 
 def TokenShopPage(student, color, StudentName):
     remove_widgets()
@@ -298,35 +317,28 @@ def TokenShopPage(student, color, StudentName):
     Shop_frame = ctk.CTkFrame(window, fg_color='light grey')
     Shop_frame.pack(fill='both', expand=True)
 
-    options_frame = ctk.CTkFrame(Shop_frame, fg_color=color, width=200, height=600)
-    options_frame.pack(side='left', fill='y', expand=False)
+    CommonWidgets(Shop_frame, student, StudentName, color)
 
-    back_btn = ctk.CTkButton(options_frame, command=lambda:StudentHome(student), text='Back', font=('Impact', 15), text_color='black', fg_color='light grey', width=50, border_width=1)
-    back_btn.place(x=0, y=450)
-
-    StudentPoints_label = ctk.CTkLabel(Shop_frame, text=("Total Points:  {}".format(student.student_points)), font=('Impact', 17), width=20, height=2)
-    StudentPoints_label.place(x=870, y=0)
-
-    StudentName_label = ctk.CTkLabel(Shop_frame, text=StudentName, font=('Impact', 17), width=15, height=2)
-    StudentName_label.place(x=200, y=0)
+    PageTitle_label = ctk.CTkButton(Shop_frame, text='Token Shop', font=('Impact', 45), text_color='black', fg_color='white', border_width=2, width=250, height=50, hover='disabled')
+    PageTitle_label.place(x=245, y=90)
 
     Token1_btn = ctk.CTkButton(Shop_frame, text='Dress Code\nExemption', command=lambda:ConfirmPurchaseWindow(token_name[1]), font=('Impact', 17), text_color='black', fg_color='white',height= 120, width=120, border_width=1)
-    Token1_btn.place(x=400, y=120)
+    Token1_btn.place(x=400, y=190)
 
-    Token1_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[1])))), font=('Impact', 14), width=20, height=2)
-    Token1_desc.place(x=360, y=245)
+    Token1_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[1])))), font=('Impact', 17), width=100, height=2)
+    Token1_desc.place(x=335, y=315)
 
     Token2_btn = ctk.CTkButton(Shop_frame, text='Cafeteria\nCoupon', command=lambda:ConfirmPurchaseWindow(token_name[2]), font=('Impact', 17), text_color='black', fg_color='white',height= 120, width=120, border_width=1)
-    Token2_btn.place(x=650, y=120)
+    Token2_btn.place(x=650, y=190)
 
-    Token2_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[2])))), font=('Impact', 14), width=20, height=2)
-    Token2_desc.place(x=635, y=245)
+    Token2_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[2])))), font=('Impact', 17), width=100, height=2)
+    Token2_desc.place(x=615, y=315)
 
     Token3_btn = ctk.CTkButton(Shop_frame, text='1 day\noff', command=lambda:ConfirmPurchaseWindow(token_name[3]), font=('Impact', 17), text_color='black', fg_color='white',height= 120, width=120, border_width=1)
-    Token3_btn.place(x=400, y=320)
+    Token3_btn.place(x=400, y=390)
 
-    Token3_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[3])))), font=('Impact', 14), width=20, height=2)
-    Token3_desc.place(x=360, y=445)
+    Token3_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[3])))), font=('Impact', 17), width=100, height=2)
+    Token3_desc.place(x=365, y=515)
 
     def ConfirmPurchaseWindow(token_name):
         token_id = GetTokenId(token_name)
@@ -337,13 +349,13 @@ def TokenShopPage(student, color, StudentName):
 
         ctk.CTkLabel(confirmPurchase_window, text=('Are you sure you want to purchase this "{}" token?').format(token_name), font=('Impact', 17)).place(x=125, y=35)
 
-        confirm_btn = ctk.CTkButton(confirmPurchase_window, text='Yes', command=lambda: purchase_and_close(confirmPurchase_window, student, token_id, color, StudentName))
-        confirm_btn.place(x=425, y=85)
+        confirm_btn = ctk.CTkButton(confirmPurchase_window, text='Yes', command=lambda: purchase_and_close(confirmPurchase_window, student, token_id))
+        confirm_btn.place(x=175, y=85)
 
         cancel_btn = ctk.CTkButton(confirmPurchase_window, text='No', command=confirmPurchase_window.destroy)
-        cancel_btn.place(x=175, y=85)
+        cancel_btn.place(x=425, y=85)
 
-def purchase_and_close(window, student, token_id, color, StudentName):
+def purchase_and_close(window, student, token_id):
     student.PurchaseToken(token_id)
     StudentHome(student)
     window.destroy()
