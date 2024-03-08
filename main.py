@@ -30,7 +30,7 @@ class User:
                 StudentHouse = user[0][5]
                 StudentPoints = user[0][6]
                 student = Student(Id, password, first_name, last_name, grade, StudentHouse, StudentPoints)
-                StudentHome(student)
+                StudentHomePage(student)
             else:
                 messagebox.showerror("Login Failed", "Invalid Id or password.")
         elif selected_role.get() == 'Teacher':
@@ -40,6 +40,9 @@ class User:
             if user[0][1] == password:
                 first_name = user[0][2]
                 last_name = user[0][3]
+                subject = user[0][4]
+                teacher = Teacher(Id, password, first_name, last_name, subject)
+                TeacherHomePage(teacher)
             else:
                 messagebox.showerror("Login Failed", "Invalid Id or password.")
         else:
@@ -87,7 +90,7 @@ class Student(User):
             self.student_last_name = NewLastName
             messagebox.showinfo('',"Successfully updated account details")
             remove_widgets()
-            StudentHome(student)
+            StudentHomePage(student)
 
         def PurchaseToken(self, token_id):
             purchase_date =  datetime.now().strftime('%Y-%m-%d')
@@ -109,11 +112,12 @@ class Student(User):
             self.student_points = new_sum
 
 class Teacher(User):
-    def __init__(self, Id, password, first_name, last_name):
+    def __init__(self, Id, password, first_name, last_name, subject):
         super().__init__(password, first_name, last_name)
         self.teacher_id = Id
         self.teacher_first_name = first_name
         self.teacher_last_name = last_name
+        self.teacher_subject = subject
 
 def GetHouseID(selected_house):
     Houses = {"Gazelles": 1, "Oryxes": 2, "Foxes": 3, "Falcons": 4}
@@ -121,7 +125,7 @@ def GetHouseID(selected_house):
     return houseId
 
 def GetHouseColor(user):
-    colors = {1: '#0A8B0B', 2: '#FFC300', 3: '#000000', 4:  '#0012C4'}
+    colors = {1: '#077A00', 2: '#FFA600', 3: '#000000', 4:  '#000B52'}
     color = colors[user.student_houseId]
     return color
 
@@ -140,19 +144,19 @@ def remove_widgets():
 
 def Loginpage():
     remove_widgets()
-    login_frame = ctk.CTkFrame(window, fg_color='light grey', border_width=50, border_color='#A7A7A7')
+    login_frame = ctk.CTkFrame(window, fg_color='#262832', border_width=50, border_color='grey')
     login_frame.pack(fill='both', expand=True)
 
-    titleLabel = ctk.CTkLabel(login_frame, text='ASCS House Points', font=('Franklin Gothic Condensed', 60), fg_color='light grey')
+    titleLabel = ctk.CTkLabel(login_frame, text='ASCS House Points', text_color='white', font=('Franklin Gothic Condensed', 60), fg_color='#262832')
     titleLabel.pack(pady=75)
 
-    input_frame = ctk.CTkFrame(login_frame, fg_color='light grey')
+    input_frame = ctk.CTkFrame(login_frame, fg_color='#262832')
     input_frame.pack()
 
-    id_label = ctk.CTkLabel(input_frame, text='ID number', font=('Franklin Gothic Condensed', 25), fg_color='light grey')
+    id_label = ctk.CTkLabel(input_frame, text='ID number', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color='#262832')
     id_label.grid(row=0, column=0)
     
-    password_label = ctk.CTkLabel(input_frame, text='Password', font=('Franklin Gothic Condensed', 25), fg_color='light grey')
+    password_label = ctk.CTkLabel(input_frame, text='Password', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color='#262832')
     password_label.grid(row=1, column=0)
 
     Id_entry = ctk.CTkEntry(input_frame)
@@ -179,17 +183,17 @@ def Loginpage():
 
 def CreateStudentPage():
     remove_widgets()
-    CreateAcc_frame = ctk.CTkFrame(window, fg_color='light grey')
+    CreateAcc_frame = ctk.CTkFrame(window, fg_color='#262832')
     CreateAcc_frame.pack(fill='both', expand=True)
 
-    ctk.CTkLabel(CreateAcc_frame, text='Enter your details', font=('Franklin Gothic Condensed', 40), fg_color='light grey').place(x=350, y=100)
+    ctk.CTkLabel(CreateAcc_frame, text='Enter your details', font=('Franklin Gothic Condensed', 40), fg_color='#262832').place(x=350, y=100)
 
-    ctk.CTkLabel(CreateAcc_frame, text='Enter your first name', font=('Franklin Gothic Condensed', 17), fg_color='light grey').place(x=200, y=185)
-    ctk.CTkLabel(CreateAcc_frame, text='Enter your last name', font=('Franklin Gothic Condensed', 17), fg_color='light grey').place(x=525, y=185)
-    ctk.CTkLabel(CreateAcc_frame, text='Enter an ID number', font=('Franklin Gothic Condensed', 17), fg_color='light grey').place(x=200, y=230)
-    ctk.CTkLabel(CreateAcc_frame, text='Select your class', font=('Franklin Gothic Condensed', 17), fg_color='light grey').place(x=525, y=230)
-    ctk.CTkLabel(CreateAcc_frame, text='Enter a password', font=('Franklin Gothic Condensed', 17), fg_color='light grey').place(x=200, y=275)
-    ctk.CTkLabel(CreateAcc_frame, text='Select your House', font=('Franklin Gothic Condensed', 17), fg_color='light grey').place(x=525, y=275)
+    ctk.CTkLabel(CreateAcc_frame, text='Enter your first name', text_color='white', font=('Franklin Gothic Condensed', 17), fg_color='#262832').place(x=200, y=185)
+    ctk.CTkLabel(CreateAcc_frame, text='Enter your last name', text_color='white', font=('Franklin Gothic Condensed', 17), fg_color='#262832').place(x=525, y=185)
+    ctk.CTkLabel(CreateAcc_frame, text='Enter an ID number', text_color='white', font=('Franklin Gothic Condensed', 17), fg_color='#262832').place(x=200, y=230)
+    ctk.CTkLabel(CreateAcc_frame, text='Select your class', text_color='white', font=('Franklin Gothic Condensed', 17), fg_color='#262832').place(x=525, y=230)
+    ctk.CTkLabel(CreateAcc_frame, text='Enter a password', text_color='white', font=('Franklin Gothic Condensed', 17), fg_color='#262832').place(x=200, y=275)
+    ctk.CTkLabel(CreateAcc_frame, text='Select your House', text_color='white', font=('Franklin Gothic Condensed', 17), fg_color='#262832').place(x=525, y=275)
 
     EnterFirstName = ctk.CTkEntry(CreateAcc_frame)
     EnterFirstName.place(x=350, y=185)
@@ -205,41 +209,100 @@ def CreateStudentPage():
 
     selected_class = ctk.StringVar()
     year_groups = ["9A", "9B", "9C", "9D", "10A", "10B", "10C", "10D", "11A", "11B", "11C", "11D", "12A", "12B", "12C", "12D", "13A", "13B", "13C", "13D"]
-    combobox = ctk.CTkComboBox(CreateAcc_frame, values=year_groups,state='readonly', variable=selected_class)
-    combobox.place(x=675, y=230)
-    combobox.set("Classes (9-13)")
+    classcombobox = ctk.CTkComboBox(CreateAcc_frame, values=year_groups,state='readonly', variable=selected_class)
+    classcombobox.place(x=675, y=230)
+    classcombobox.set("Classes (9-13)")
+    classcombobox.configure(font=('franklin gothic condensed', 15))
 
     selected_house = ctk.StringVar()
     houses = ["Gazelles", "Oryxes","Foxes","Falcons"]
-    Housecombobox = ctk.CTkComboBox(CreateAcc_frame, values=houses, state='readonly', variable=selected_house)
-    Housecombobox.place(x=675, y=275)
-    
+    housecombobox = ctk.CTkComboBox(CreateAcc_frame, values=houses, state='readonly', variable=selected_house)
+    housecombobox.place(x=675, y=275)
+    housecombobox.configure(font=('franklin gothic condensed', 15))
+
     submit_btn = ctk.CTkButton(CreateAcc_frame, text='Create account', bg_color='black', command=lambda:Student.CreateNewStudent(EnterFirstName, EnterLastName, EnterPassword, EnterId, selected_class, selected_house.get(), houses, year_groups))
     submit_btn.place(x=450, y=350)
 
     back_btn = ctk.CTkButton(CreateAcc_frame, command=lambda:Loginpage(), text='Back', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='white', width=190, height=50, border_width=1)
     back_btn.place(x=3, y=500)
 
-def StudentHome(student):
+def CreateTeacherPage():
+    remove_widgets()
+
+def TeacherHomePage(teacher):
+    remove_widgets()
+    TeacherName = str(teacher.teacher_first_name + ' ' + teacher.teacher_last_name)
+    TeacherSubject = str(teacher.teacher_subject)
+
+    TeacherHome_frame = ctk.CTkFrame(window, fg_color='#262832')
+    TeacherHome_frame.pack(fill='both', expand=True)
+
+    topbar_frame = ctk.CTkFrame(TeacherHome_frame, fg_color='light grey', border_width=2, border_color='black', width=800, height=60)
+    topbar_frame.place(x=198, y=0)
+        
+    TeacherName_label = ctk.CTkButton(topbar_frame, text=TeacherName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=175, height=60, hover='disabled')
+    TeacherName_label.place(x=0, y=0)
+
+    TeacherSubject_label = ctk.CTkButton(topbar_frame, text=TeacherSubject, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=150, height=60, hover='disabled')
+    TeacherSubject_label.place(x=174)
+
+    options_frame = ctk.CTkFrame(TeacherHome_frame, fg_color='#5F6262', border_width=2, border_color='black', width=200, height=600)
+    options_frame.pack(side='left', fill='y', expand=False)
+
+    #manage_acc_btn = ctk.CTkButton(options_frame, command=lambda:TeacherAccManagementPage(), text='Account\nManagement', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    #manage_acc_btn.place(x=3, y=275)
+
+    empty_btn = ctk.CTkButton(options_frame, text='', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    empty_btn.place(x=3, y=340)
+
+    logout_btn = ctk.CTkButton(options_frame, command=lambda:logout(teacher), text='Log out', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    logout_btn.place(x=3, y=400)
+
+    viewstudents_btn = ctk.CTkButton(TeacherHome_frame, command=lambda:ViewStudentListPage(teacher), text='View\nPurchase\nHistory', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
+    viewstudents_btn.place(x=375, y=375)
+
+def Teacher_CommonWidgets(Mainframe, teacher, TeacherName, TeacherSubject):
+    topbar_frame = ctk.CTkFrame(Mainframe, fg_color='light grey', border_width=2, border_color='black', width=800, height=60)
+    topbar_frame.place(x=198, y=0)
+        
+    TeacherName_label = ctk.CTkButton(topbar_frame, text=TeacherName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=175, height=60, hover='disabled')
+    TeacherName_label.place(x=0, y=0)
+
+    TeacherSubject_label = ctk.CTkButton(topbar_frame, text=TeacherSubject, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=150, height=60, hover='disabled')
+    TeacherSubject_label.place(x=174)
+
+    options_frame = ctk.CTkFrame(Mainframe, fg_color='#5F6262', border_width=2, border_color='black', width=200, height=600)
+    options_frame.pack(side='left', fill='y', expand=False)
+
+    back_btn = ctk.CTkButton(options_frame, command=lambda:TeacherHomePage(teacher), text='Back', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', width=190, height=50, border_width=1)
+    back_btn.place(x=3, y=500)
+
+def ViewStudentListPage(teacher):
+    remove_widgets()
+    ViewStudentList_frame = ctk.CTkFrame(window, fg_color='#262832')
+    ViewStudentList_frame.pack(fill='both', expand=True)
+    
+
+def StudentHomePage(student):
     remove_widgets()
     StudentName = str(student.student_first_name + '  ' + student.student_last_name)
     StudentClass = str(student.student_grade)
     color = GetHouseColor(student)
 
-    StudentHome_frame = ctk.CTkFrame(window, fg_color='light grey')
+    StudentHome_frame = ctk.CTkFrame(window, fg_color='#262832')
     StudentHome_frame.pack(fill='both', expand=True)
 
-    topbar_frame = ctk.CTkFrame(StudentHome_frame, fg_color='white', border_width=2, border_color='black', width=800, height=60)
+    topbar_frame = ctk.CTkFrame(StudentHome_frame, fg_color='light grey', border_width=2, border_color='black', width=800, height=60)
     topbar_frame.place(x=198, y=0)
     
-    StudentName_label = ctk.CTkButton(topbar_frame, text=StudentName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='white', border_width=2, width=175, height=60, hover='disabled')
+    StudentName_label = ctk.CTkButton(topbar_frame, text=StudentName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=175, height=60, hover='disabled')
     StudentName_label.place(x=0, y=0)
 
-    StudentClass_label = ctk.CTkButton(topbar_frame, text=StudentClass, font=('Franklin Gothic Condensed', 21), text_color='black', fg_color='white', border_width=2, width=150, height=60, hover='disabled')
+    StudentClass_label = ctk.CTkButton(topbar_frame, text=StudentClass, font=('Franklin Gothic Condensed', 21), text_color='black', fg_color='light grey', border_width=2, width=75, height=60, hover='disabled')
     StudentClass_label.place(x=174)
 
-    StudentPoints_label = ctk.CTkLabel(topbar_frame, text=("Total Points:  {}".format(student.student_points)), font=('Franklin Gothic Condensed', 25), width=35, height=20)
-    StudentPoints_label.place(x=600, y=10)
+    StudentPoints_label = ctk.CTkButton(topbar_frame, text=("My total Points:  {}".format(student.student_points)), font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='light grey', border_width=2, width=200, height=60, hover='disabled')
+    StudentPoints_label.place(x=560)
 
     options_frame = ctk.CTkFrame(StudentHome_frame, fg_color=color, border_width=2, border_color='black', width=200, height=600)
     options_frame.pack(side='left', fill='y', expand=False)
@@ -254,43 +317,43 @@ def StudentHome(student):
     logout_btn.place(x=3, y=400)
 
     Shop_btn = ctk.CTkButton(StudentHome_frame, command=lambda:TokenShopPage(student, StudentName, StudentClass, color), text='Token\nShop', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
-    Shop_btn.place(x=665, y=300)
+    Shop_btn.place(x=675, y=375)
 
-    history_btn = ctk.CTkButton(StudentHome_frame, command=lambda:ViewPurchaseHistoryPage(student, StudentName, StudentClass, color), text='View\nPurchase\nHistory', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
-    history_btn.place(x=365, y=300)
+    viewhistory_btn = ctk.CTkButton(StudentHome_frame, command=lambda:ViewPurchaseHistoryPage(student, StudentName, StudentClass, color), text='View\nPurchase\nHistory', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
+    viewhistory_btn.place(x=375, y=375)
 
-def CommonWidgets(Mainframe, student, StudentName, StudentClass, color):
-    topbar_frame = ctk.CTkFrame(Mainframe, fg_color='white', border_width=2, border_color='black', width=800, height=60)
+def Student_CommonWidgets(Mainframe, student, StudentName, StudentClass, color):
+    topbar_frame = ctk.CTkFrame(Mainframe, fg_color='light grey', border_width=2, border_color='black', width=800, height=60)
     topbar_frame.place(x=198, y=0)
     
-    StudentName_label = ctk.CTkButton(topbar_frame, text=StudentName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='white', border_width=2, width=175, height=60, hover='disabled')
+    StudentName_label = ctk.CTkButton(topbar_frame, text=StudentName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=175, height=60, hover='disabled')
     StudentName_label.place(x=0, y=0)
 
-    StudentClass_label = ctk.CTkButton(topbar_frame, text=StudentClass, font=('Franklin Gothic Condensed', 21), text_color='black', fg_color='white', border_width=2, width=75, height=60, hover='disabled')
+    StudentClass_label = ctk.CTkButton(topbar_frame, text=StudentClass, font=('Franklin Gothic Condensed', 21), text_color='black', fg_color='light grey', border_width=2, width=75, height=60, hover='disabled')
     StudentClass_label.place(x=174)
 
-    StudentPoints_label = ctk.CTkLabel(topbar_frame, text=("My total Points:  {}".format(student.student_points)), font=('Franklin Gothic Condensed', 25), width=35, height=20)
-    StudentPoints_label.place(x=600, y=10)
+    StudentPoints_label = ctk.CTkButton(topbar_frame, text=("My total Points:  {}".format(student.student_points)), font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='light grey', border_width=2, width=200, height=60, hover='disabled')
+    StudentPoints_label.place(x=560)
 
     options_frame = ctk.CTkFrame(Mainframe, fg_color=color, border_width=2, border_color='black', width=200, height=600)
     options_frame.pack(side='left', fill='y', expand=False)
 
-    back_btn = ctk.CTkButton(options_frame, command=lambda:StudentHome(student), text='Back', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', width=190, height=50, border_width=1)
+    back_btn = ctk.CTkButton(options_frame, command=lambda:StudentHomePage(student), text='Back', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', width=190, height=50, border_width=1)
     back_btn.place(x=3, y=500)
 
 def StudentAccManagementPage(student, StudentName, StudentClass,  color):
     remove_widgets()
-    StudentAccManagement_frame = ctk.CTkFrame(window, fg_color='light grey')
+    StudentAccManagement_frame = ctk.CTkFrame(window, fg_color='#262832')
     StudentAccManagement_frame.pack(fill='both', expand=True)
 
-    CommonWidgets(StudentAccManagement_frame, student, StudentName, StudentClass, color)
+    Student_CommonWidgets(StudentAccManagement_frame, student, StudentName, StudentClass, color)
 
-    ctk.CTkLabel(StudentAccManagement_frame, text ='First name', font=('Franklin Gothic Condensed', 11), fg_color='light grey').place(x=340, y=200)
+    ctk.CTkLabel(StudentAccManagement_frame, text ='First name', text_color='white', font=('Franklin Gothic Condensed', 11), fg_color='#262832').place(x=340, y=200)
     FirstName_entry =  ctk.CTkEntry(StudentAccManagement_frame)
     FirstName_entry.insert(0,student.student_first_name)
     FirstName_entry.place(x=440, y=200)
 
-    ctk.CTkLabel(StudentAccManagement_frame, text ='Last name', font=('Franklin Gothic Condensed', 11), fg_color='light grey').place(x=340, y=225)
+    ctk.CTkLabel(StudentAccManagement_frame, text ='Last name', text_color='white',font=('Franklin Gothic Condensed', 11), fg_color='#262832').place(x=340, y=225)
     LastName_entry = ctk.CTkEntry(StudentAccManagement_frame)
     LastName_entry.insert(0,student.student_last_name)
     LastName_entry.place(x=440, y=225)
@@ -302,38 +365,38 @@ def StudentAccManagementPage(student, StudentName, StudentClass,  color):
 def ViewPurchaseHistoryPage(student, StudentName, StudentClass, color):
     remove_widgets()
     Records = cursor.execute("SELECT pt.purchase_id, t.token_name, pt.purchase_date FROM Purchase_token pt JOIN Token t ON pt.token_id = t.token_id").fetchall()
-    PurchaseHistory_frame = ctk.CTkFrame(window, fg_color='light grey')
+    PurchaseHistory_frame = ctk.CTkFrame(window, fg_color='#262832')
     PurchaseHistory_frame.pack(fill='both', expand=True)
 
-    CommonWidgets(PurchaseHistory_frame, student, StudentName, StudentClass, color)
+    Student_CommonWidgets(PurchaseHistory_frame, student, StudentName, StudentClass, color)
 
     PageTitle_label = ctk.CTkButton(PurchaseHistory_frame, text='My Purchases', font=('Franklin Gothic Condensed', 50), text_color='black', fg_color='white', border_width=2, width=400, height=50, hover='disabled')
     PageTitle_label.place(x=245, y=100)
 
-    Records_frame = ctk.CTkScrollableFrame(window, bg_color='light grey', border_width=2, border_color='black', width=700, height=450)
+    Records_frame = ctk.CTkScrollableFrame(window, fg_color='#262832', bg_color='#262832', border_width=2, border_color='black', width=700, height=450)
     Records_frame.place(x=245, y=190)
 
-    column1 = ctk.CTkButton(Records_frame, text='Purchase ID', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white', border_width=2, width=233, height=20, hover='disabled')
+    column1 = ctk.CTkButton(Records_frame, text='Purchase ID', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=233, height=20, hover='disabled')
     column1.grid(row=0, column=0)
 
-    column2 = ctk.CTkButton(Records_frame, text='Token', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white', border_width=2, width=233, height=20, hover='disabled')
+    column2 = ctk.CTkButton(Records_frame, text='Token', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=233, height=20, hover='disabled')
     column2.grid(row=0, column=1)
     
-    column3 = ctk.CTkButton(Records_frame, text='Date Purchased', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white', border_width=2, width=233, height=20, hover='disabled')
+    column3 = ctk.CTkButton(Records_frame, text='Date Purchased', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=233, height=20, hover='disabled')
     column3.grid(row=0, column=2)
 
     for i, record in enumerate(Records):
         for j, value in enumerate(record):
-            button = ctk.CTkButton(Records_frame, text=f'{value}', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white', border_width=2, width=233, height=20, hover='disabled')
+            button = ctk.CTkButton(Records_frame, text=f'{value}', font=('Franklin Gothic Condensed', 17), fg_color='light grey', border_width=2, width=233, height=20, hover='disabled')
             button.grid(row=i+1, column=j)
 
 def TokenShopPage(student, StudentName, StudentClass, color):
     remove_widgets()
     token_name = {1:"Dress code exemption", 2:"Cafeteria coupon", 3:"One day off", 4:"null"}
-    Shop_frame = ctk.CTkFrame(window, fg_color='light grey')
+    Shop_frame = ctk.CTkFrame(window, fg_color='#262832')
     Shop_frame.pack(fill='both', expand=True)
 
-    CommonWidgets(Shop_frame, student, StudentName, StudentClass, color)
+    Student_CommonWidgets(Shop_frame, student, StudentName, StudentClass, color)
 
     PageTitle_label = ctk.CTkButton(Shop_frame, text='Token Shop', font=('Franklin Gothic Condensed', 45), text_color='black', fg_color='white', border_width=2, width=250, height=50, hover='disabled')
     PageTitle_label.place(x=245, y=90)
@@ -341,19 +404,19 @@ def TokenShopPage(student, StudentName, StudentClass, color):
     Token1_btn = ctk.CTkButton(Shop_frame, text='Dress Code\nExemption', command=lambda:ConfirmPurchaseWindow(token_name[1]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white',height= 120, width=120, border_width=1)
     Token1_btn.place(x=400, y=190)
 
-    Token1_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[1])))), font=('Franklin Gothic Condensed', 17), width=100, height=2)
+    Token1_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[1])))), text_color='white', font=('Franklin Gothic Condensed', 17), width=100, height=2)
     Token1_desc.place(x=335, y=315)
 
     Token2_btn = ctk.CTkButton(Shop_frame, text='Cafeteria\nCoupon', command=lambda:ConfirmPurchaseWindow(token_name[2]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white',height= 120, width=120, border_width=1)
     Token2_btn.place(x=650, y=190)
 
-    Token2_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[2])))), font=('Franklin Gothic Condensed', 17), width=100, height=2)
+    Token2_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[2])))), text_color='white', font=('Franklin Gothic Condensed', 17), width=100, height=2)
     Token2_desc.place(x=615, y=315)
 
     Token3_btn = ctk.CTkButton(Shop_frame, text='1 day\noff', command=lambda:ConfirmPurchaseWindow(token_name[3]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white',height= 120, width=120, border_width=1)
     Token3_btn.place(x=400, y=390)
 
-    Token3_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[3])))), font=('Franklin Gothic Condensed', 17), width=100, height=2)
+    Token3_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[3])))), text_color='white', font=('Franklin Gothic Condensed', 17), width=100, height=2)
     Token3_desc.place(x=365, y=515)
 
     def ConfirmPurchaseWindow(token_name):
@@ -373,7 +436,7 @@ def TokenShopPage(student, StudentName, StudentClass, color):
 
 def purchase_and_close(window, student, token_id):
     student.PurchaseToken(token_id)
-    StudentHome(student)
+    StudentHomePage(student)
     window.destroy()
 
 def logout(user):
@@ -382,7 +445,7 @@ def logout(user):
     Loginpage()
 
 if __name__ == "__main__":
-    # from House_points_database import database
-    # database()
+    from House_points_database import database
+    database()
     Loginpage()
     window.mainloop()
