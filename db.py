@@ -19,6 +19,7 @@ def database():
             password VARCHAR(20),
             first_name VARCHAR(15),
             last_name VARCHAR(15),
+            subject VARCHAR(20),
             PRIMARY KEY (teacher_id)
         );
     ''')
@@ -104,20 +105,20 @@ def database():
     cursor.execute("INSERT INTO House (house_id, house_name) VALUES (4,'Falcons');")
 
     #Adding tokens
-    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES (1, 'Dress Code Exemption', 750, 'Student is allowed to spend one day\nwearing non-uniform clothing\n( 750 points )')")
+    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES (1, 'Dress Code Exemption', 750, 'Student is allowed to spend one\nday wearing non-uniform clothing\n( 750 points )')")
     cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES ( 2, 'Cafeteria coupon', 250, 'Student recieves 1 free meal\nfrom the school cafeteria\n( 250 points )')")
-    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES ( 3, '1 day off', 1500, 'Student is allowed one day\nof registered abscence (provided that\ntheir teachers all allow it)\n( 1500 points )')")
+    cursor.execute("INSERT INTO Token (token_id, token_name, point_cost, description) VALUES ( 3, '1 day off', 1500, 'Student is allowed one day\nof registered abscence\n( 1500 points )')")
 
     #Adding default values for tests
     cursor.execute("INSERT INTO Student (student_id, first_name, last_name, password, grade, house_id, total_points) VALUES (1899,'Arthur','Morgan','hosea', '13A', 1, 1000);")
     cursor.execute("INSERT INTO Student (student_id, first_name, last_name, password, grade, house_id, total_points) VALUES (1,'John','Doe','1', '13C', 2, 1500);")
-    cursor.execute("INSERT INTO Teacher (teacher_id, first_name, last_name, password) VALUES (1, 'Walter', 'White', '1')")
-    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1899, 1, 0)")
-    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1899, 2, 0)")
-    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1899, 3, 0)")
-    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1, 1, 0)")
-    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1, 2, 0)")
-    # cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1, 3, 0)")
+    cursor.execute("INSERT INTO Teacher (teacher_id, password, first_name, last_name, subject) VALUES (1, '1','Walter', 'White','Chemistry')")
+    cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1899, 1, 0)")
+    cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1899, 2, 0)")
+    cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1899, 3, 0)")
+    cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1, 1, 0)")
+    cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1, 2, 0)")
+    cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (1, 3, 0)")
 
     conn.commit()
     conn.close()
