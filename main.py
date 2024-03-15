@@ -125,7 +125,7 @@ def GetHouseID(selected_house):
     return houseId
 
 def GetHouseColor(user):
-    colors = {1: '#077A00', 2: '#FFA600', 3: '#000000', 4:  '#000B52'}
+    colors = {1: '#077A00', 2: '#C1A848', 3: '#000000', 4:  '#000B52'}
     color = colors[user.student_houseId]
     return color
 
@@ -137,6 +137,57 @@ def GetTokenId(token_name):
 def GetTokenDesc(token_id):
     desc = cursor.execute("SELECT description FROM Token where token_id = ?",(token_id,)).fetchone()
     return desc[0]
+
+def ApplyFilters(frame, class_filter, points_filter, house_filter):
+    for widget in frame.winfo_children():
+        widget.destroy()
+    if house_filter.get() == "All":
+        if class_filter.get() == "All":
+            if points_filter.get() == "Highest - Lowest":
+                Records = cursor.execute("SELECT student_id, first_name, last_name, grade, total_points, house_name FROM Student, House WHERE Student.house_id = House.house_id ORDER BY total_points DESC").fetchall()
+            else:
+                Records = cursor.execute("SELECT student_id, first_name, last_name, grade, total_points, house_name FROM Student, House WHERE Student.house_id = House.house_id ORDER BY total_points ASC").fetchall()
+        else:
+            if points_filter.get() == "Highest - Lowest":
+                Records = cursor.execute("SELECT student_id, first_name, last_name, grade, total_points, house_name FROM Student, House WHERE Student.house_id = House.house_id AND Student.grade = ? ORDER BY total_points DESC", (class_filter.get(),)).fetchall()
+            else:
+                Records = cursor.execute("SELECT student_id, first_name, last_name, grade, total_points, house_name FROM Student, House WHERE Student.house_id = House.house_id AND Student.grade = ? ORDER BY total_points ASC", (class_filter.get(),)).fetchall()
+    else:
+        if class_filter.get() == "All":
+            if points_filter.get() == "Highest - Lowest":
+                Records = cursor.execute("SELECT student_id, first_name, last_name, grade, total_points, house_name FROM Student, House WHERE Student.house_id = House.house_id AND House.house_name = ? ORDER BY total_points DESC", (house_filter.get(),)).fetchall()
+            else:
+                Records = cursor.execute("SELECT student_id, first_name, last_name, grade, total_points, house_name FROM Student, House WHERE Student.house_id = House.house_id AND House.house_name = ? ORDER BY total_points ASC", (house_filter.get(),)).fetchall()
+        else:
+            if points_filter.get() == "Highest - Lowest":
+                Records = cursor.execute("SELECT student_id, first_name, last_name, grade, total_points, house_name FROM Student, House WHERE Student.house_id = House.house_id AND Student.grade = ? AND House.house_name = ? ORDER BY total_points DESC", (class_filter.get(), house_filter.get(),)).fetchall()
+            else:
+                Records = cursor.execute("SELECT student_id, first_name, last_name, grade, total_points, house_name FROM Student, House WHERE Student.house_id = House.house_id AND Student.grade = ? AND House.house_name = ? ORDER BY total_points ASC", (class_filter.get(), house_filter.get(),)).fetchall()
+
+    column1 = ctk.CTkButton(frame, text='Student ID', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
+    column1.grid(row=0, column=0)
+
+    column2 = ctk.CTkButton(frame, text='First Name', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
+    column2.grid(row=0, column=1)
+    
+    column3 = ctk.CTkButton(frame, text='Last Name', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
+    column3.grid(row=0, column=2)
+
+    column4 = ctk.CTkButton(frame, text='Year Group', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
+    column4.grid(row=0, column=3)
+
+    column5 = ctk.CTkButton(frame, text='Total Points', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
+    column5.grid(row=0, column=4)
+    
+    column6 = ctk.CTkButton(frame, text='House', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
+    column6.grid(row=0, column=5)
+    if Records != []:
+        for i, record in enumerate(Records):
+            button = ctk.CTkButton(frame, text=f'{record[0]}', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=116, height=20, hover='disabled')
+            button.grid(row=i+1, column=0)
+    else:
+        message = ctk.CTkButton(frame, text="No data", text_color='black',  font=('Franklin Gothic Condensed', 20), fg_color='light grey', border_width=2, width=500, height=100, hover='disabled')
+        message.grid(row=5, column=0, columnspan=6)  
 
 def remove_widgets():
     for widget in window.winfo_children():
@@ -258,7 +309,7 @@ def TeacherHomePage(teacher):
     logout_btn = ctk.CTkButton(options_frame, command=lambda:logout(teacher), text='Log out', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
     logout_btn.place(x=3, y=400)
 
-    viewstudents_btn = ctk.CTkButton(TeacherHome_frame, command=lambda:ViewStudentListPage(teacher), text='View\nPurchase\nHistory', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
+    viewstudents_btn = ctk.CTkButton(TeacherHome_frame, command=lambda:ViewStudentListPage(teacher, TeacherName, TeacherSubject), text='Student\nList', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
     viewstudents_btn.place(x=375, y=375)
 
 def Teacher_CommonWidgets(Mainframe, teacher, TeacherName, TeacherSubject):
@@ -277,11 +328,47 @@ def Teacher_CommonWidgets(Mainframe, teacher, TeacherName, TeacherSubject):
     back_btn = ctk.CTkButton(options_frame, command=lambda:TeacherHomePage(teacher), text='Back', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', width=190, height=50, border_width=1)
     back_btn.place(x=3, y=500)
 
-def ViewStudentListPage(teacher):
+def ManageStudentsPage(teacher, TeacherName, TeacherSubject):
+    remove_widgets()
+    ManageStudents_frame = ctk.CTkFrame(window, fg_color='#262832')
+    ManageStudents_frame.pack(fill='both', expand=True)
+
+    Teacher_CommonWidgets(ManageStudents_frame, teacher, TeacherName, TeacherSubject)
+
+    
+
+def ViewStudentListPage(teacher, TeacherName, TeacherSubject):
     remove_widgets()
     ViewStudentList_frame = ctk.CTkFrame(window, fg_color='#262832')
     ViewStudentList_frame.pack(fill='both', expand=True)
     
+    Teacher_CommonWidgets(ViewStudentList_frame, teacher, TeacherName, TeacherSubject)
+
+    class_filter = ctk.StringVar()
+    year_groups = ["All", "9A", "9B", "9C", "9D", "10A", "10B", "10C", "10D", "11A", "11B", "11C", "11D", "12A", "12B", "12C", "12D", "13A", "13B", "13C", "13D"]
+    class_filter_combobox = ctk.CTkComboBox(ViewStudentList_frame, values=year_groups,state='readonly', variable=class_filter, font=('franklin gothic condensed', 15))
+    class_filter_combobox.place(x=625, y=150)
+    class_filter_combobox.set("All")
+    
+    points_filter = ctk.StringVar()
+    points_range = ["Highest - Lowest", "Lowest - Highest"]
+    points_filter_combobox = ctk.CTkComboBox(ViewStudentList_frame, values=points_range, state='readonly', variable=points_filter, font=('franklin gothic condensed', 15))
+    points_filter_combobox.place(x=425, y=150)
+    points_filter_combobox.set("Highest - Lowest")
+
+    house_filter = ctk.StringVar()
+    houses = ["All", "Gazelles", "Oryxes", "Foxes", "Falcons"]
+    house_filter_combobox = ctk.CTkComboBox(ViewStudentList_frame, values=houses, state='readonly', variable=house_filter, font=('franklin gothic condensed', 15))
+    house_filter_combobox.place(x=225, y=150)
+    house_filter_combobox.set("All")
+
+    StudentList_frame = ctk.CTkScrollableFrame(ViewStudentList_frame, fg_color='#262832', bg_color='#262832', border_width=2, border_color='black', width=700, height=550)
+    StudentList_frame.place(x=245, y=190)
+
+    ApplyFilters(StudentList_frame, class_filter, points_filter, house_filter)
+
+    apply_filters_btn = ctk.CTkButton(ViewStudentList_frame, text="Apply filters", command=lambda:ApplyFilters(StudentList_frame, class_filter, points_filter, house_filter), font=('Franklin gothic condensed', 15), text_color='black',fg_color='white', border_width=1)
+    apply_filters_btn.place(x=825, y=150)
 
 def StudentHomePage(student):
     remove_widgets()
