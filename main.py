@@ -1,14 +1,15 @@
 import customtkinter as ctk
 from tkinter import messagebox
 import sqlite3
-from datetime import datetime
+import hashlib
+from datetime import datetime, timedelta
 
 conn = sqlite3.connect("House points")
 cursor = conn.cursor()
 
 window = ctk.CTk()
 window.title('House Points System')
-window.geometry('1000x600')
+window.geometry('1100x650')
 window.resizable(False, False)
 ctk.set_appearance_mode("light")
 
@@ -24,42 +25,46 @@ class User:
             if selected_role.get() == 'Student':
                 Id = Id_entry.get()
                 password = password_entry.get()
+                hashed = EncryptPassword(password)
                 user = cursor.execute("SELECT * FROM Student WHERE student_id = ?", (Id,)).fetchall()
                 if user:
-                    if user[0][1] == password:
+                    if user[0][1] == hashed:
                         first_name = user[0][2]
                         last_name = user[0][3]
                         grade = user[0][4]
                         StudentHouse = user[0][5]
                         StudentPoints = user[0][6]
                         student = Student(Id, password, first_name, last_name, grade, StudentHouse, StudentPoints)
-                        StudentHomePage(student)
+                        S_HomePage(student)
                     else:
                         messagebox.showerror("Login Failed", "Invalid Password")
                 else:
-                    messagebox.showerror("Login Failed", "User does not exist")
+                    messagebox.showerror("Login Failed", "User does not exist!")
             elif selected_role.get() == 'Teacher':
                 Id = Id_entry.get()
                 password = password_entry.get()
+                hashed = EncryptPassword(password)
                 user = cursor.execute("SELECT * FROM Teacher WHERE teacher_id = ?", (Id,)).fetchall()
                 if user:
-                    if user[0][1] == password:
-                        first_name = user[0][2]
-                        last_name = user[0][3]
-                        subject = user[0][4]
-                        teacher = Teacher(Id, password, first_name, last_name, subject)
-                        TeacherHomePage(teacher)
+                    if user[0][1] == hashed:
+                        title = user[0][2]
+                        first_name = user[0][3]
+                        last_name = user[0][4]
+                        subject = user[0][5]
+                        teacher = Teacher(Id, password, title, first_name, last_name, subject)
+                        T_HomePage(teacher)
                     else:
                         messagebox.showerror("Login Failed", "Invalid Id or password")
                 else:
                     messagebox.showerror("Login Failed", "User does not exist")
             else:
                 messagebox.showerror("Login Failed", "Select Student or Teacher")
-
+ 
 class Student(User):
         def __init__(self, Id, password, first_name, last_name, grade, StudentHouse, StudentPoints):
             super().__init__(password, first_name, last_name)
             self.student_id = Id
+            self.student_password = password
             self.student_first_name = first_name
             self.student_last_name = last_name
             self.student_grade = grade
@@ -70,6 +75,7 @@ class Student(User):
                 first_name = EnterFirstName.get()
                 last_name = EnterLastName.get()
                 password = EnterPassword.get()
+                hashed = EncryptPassword(password)
                 Id = EnterId.get()
                 grade = selected_class.get()
                 if first_name == '' or last_name == '' or password == '' or Id == '' or grade not in year_groups:
@@ -79,72 +85,187 @@ class Student(User):
                         messagebox.showerror('',"Account not created, please select a house")
                     else:
                         houseId = GetHouseID(selected_house)
-                        cursor.execute("INSERT INTO Student (student_ID, password, first_name, last_name, grade, house_id, total_points, leaderboard_position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (Id, password, first_name, last_name, grade, houseId, 0, 0))
+                        cursor.execute("INSERT INTO Student (student_ID, password_hash, first_name, last_name, grade, house_id, total_points, leaderboard_position, position_in_house) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)", (Id, hashed, first_name, last_name, grade, houseId, 0))
                         conn.commit()
                         for i in range(1,4):
-                            cursor.execute("INSERT INTO Student_token_ownership (student_id, token_id, quantity) VALUES (?, ?, ?)", (Id, i, 0))
+                            cursor.execute("INSERT INTO Owned_tokens (student_id, token_id, quantity, last_purchase_date, allowed_purchase_date) VALUES (?, ?, ?, NULL, NULL)", (Id, i, 0))
                             conn.commit()
                         messagebox.showinfo('',"Account created!")
                         RemoveWidgets()
                         Loginpage()
 
-        def UpdateStudentFields(self, FirstName_entry, LastName_entry, student):
+        def CheckNotifs(self):
+            notifs = cursor.execute("SELECT * FROM Notifs WHERE student_id = ? AND not_seen = 1", (self.student_id,)).fetchall()
+            if notifs != []:
+                if len(notifs) < 2:
+                        record_id = notifs[0][0]
+                        change = notifs[0][2]
+                        points = cursor.execute("SELECT points FROM House_points_record WHERE record_id = ?", (record_id,)).fetchone()
+                        if change == 'added':
+                            messagebox.showinfo('Notification',"{} points where {} to your account!".format(points[0], change))
+                        elif change == 'deducted':
+                            messagebox.showinfo('Notification',"{} points where {} from your account!".format(points[0], change))
+                        cursor.execute("UPDATE Notifs SET not_seen = 0 WHERE record_id = ?", (record_id,))
+                        conn.commit()
+                elif len(notifs) >= 2:            
+                    messagebox.showinfo('Notification', "You have {} unchecked notifications".format(len(notifs)))
+                else:
+                    pass
+            else:
+                pass
+
+        def ShowNotifs(self):
+            notifs = cursor.execute("SELECT * FROM Notifs WHERE student_id = ? AND not_seen = 1", (self.student_id,)).fetchall()
+            if notifs != []:
+                for i, record in enumerate(notifs):
+                        record_id = record[0]
+                        change = record[2]
+                        points = cursor.execute("SELECT points FROM House_points_record WHERE record_id = ?", (record_id,)).fetchone()
+                        if change == 'added':
+                            messagebox.showinfo('Notification',"{} points where {} to your account!".format(points[0], change))
+                        elif change == 'deducted':
+                            messagebox.showinfo('Notification',"{} points where {} from your account!".format(points[0], change))
+                        cursor.execute("UPDATE Notifs SET not_seen = 0 WHERE record_id = ?", (record_id,))
+                        conn.commit()
+            else:
+                messagebox.showinfo('',"You have no new notifications")
+
+        def UpdateFields(self, Id_entry, FirstName_entry, LastName_entry, selected_class, selected_house, student):
+            NewId = Id_entry.get()
             NewFirstName = FirstName_entry.get()
             NewLastName = LastName_entry.get()
-            cursor.execute("UPDATE Student SET first_name = ? WHERE student_id = ?", (NewFirstName, self.student_id,))
-            cursor.execute("UPDATE Student SET last_name = ? WHERE student_id = ?", (NewLastName, self.student_id,))
-            conn.commit()
-            self.student_first_name = NewFirstName
-            self.student_last_name = NewLastName
-            messagebox.showinfo('',"Successfully updated account details")
-            RemoveWidgets()
-            StudentHomePage(student)
+            NewClass = selected_class
+            NewHouse = GetHouseID(selected_house)
+            if NewId == student.student_id and NewFirstName == student.student_first_name and NewLastName == student.student_last_name and NewClass == student.student_grade and NewHouse == student.student_houseId:
+                messagebox.showinfo('', "No fields changed")
+            else:
+                try:
+                    cursor.execute("UPDATE Student SET student_id = ?, first_name = ?, last_name = ?, grade = ?, house_id = ? WHERE student_id = ?", (NewId, NewFirstName, NewLastName, NewClass, NewHouse, self.student_id))
+                    conn.commit()
+                    self.student_id = NewId
+                    self.student_first_name = NewFirstName
+                    self.student_last_name = NewLastName
+                    self.student_grade = NewClass
+                    self.student_houseId = NewHouse
+                    messagebox.showinfo('',"Your account details have been updated successfully!")
+                    RemoveWidgets()
+                    S_HomePage(student)
+                except:
+                    messagebox.showerror('Invalid input', "ID number already in use")
+
+        def UpdatePassword(self, Entry1, Entry2, window):
+            if Entry1 == Entry2:
+                if Entry1 == self.student_password:
+                    messagebox.showinfo('', "Password not updated, your new password cannot be the same as your current password")
+                    window.destroy()
+                    S_HomePage(self)
+                else:
+                    hashed = EncryptPassword(Entry1)
+                    cursor.execute("UPDATE Student SET password_hash = ? WHERE student_id = ?", (hashed, self.student_id,))
+                    conn.commit()
+                    messagebox.showinfo('', "Password successfully updated!")
+                    window.destroy()
+                    S_HomePage(self)
+            else:
+                messagebox.showerror('', "Passwords entered in fields do not match, password not updated")
 
         def PurchaseToken(self, token_id):
             purchase_date =  datetime.now().strftime('%Y-%m-%d')
             point_cost = cursor.execute("SELECT point_cost FROM Token WHERE token_id = ?", (token_id,)).fetchone()
             new_sum = self.student_points - point_cost[0]
+            allowed_purchase_date = cursor.execute("SELECT allowed_purchase_date FROM Owned_tokens WHERE student_id = ? AND token_id = ?", (self.student_id, token_id,)).fetchone()
+            if token_id == 1:
+                next_purchase_date = datetime.strptime(purchase_date, "%Y-%m-%d") + timedelta(days=60)
+            elif token_id == 2:
+                next_purchase_date = datetime.strptime(purchase_date, "%Y-%m-%d") + timedelta(days=30)
+            elif token_id == 3:
+                next_purchase_date = datetime.strptime(purchase_date, "%Y-%m-%d") + timedelta(days=90)
             if new_sum < 0:
-                messagebox.showerror('',"Insufficient number of points, no points deducted")
+                messagebox.showerror('Cannot Buy Token',"Insufficient amount of points, no points deducted")
                 new_sum = 0
                 cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_sum, self.student_id,))
                 conn.commit()
             else:
+                if purchase_date < allowed_purchase_date[0]:
+                    messagebox.showerror('Cannot Buy Token', 'You cannot purchase this token until {}'.format(allowed_purchase_date[0]))
                 cursor.execute("INSERT INTO Purchase_token (student_id, token_id, purchase_date) VALUES (?, ?, ?);", (self.student_id, token_id, purchase_date))
-                intial_quantity = cursor.execute("SELECT quantity FROM Student_token_ownership WHERE student_id = ? AND token_id = ?", (self.student_id, token_id,)).fetchone()
+                intial_quantity = cursor.execute("SELECT quantity FROM Owned_tokens WHERE student_id = ? AND token_id = ?", (self.student_id, token_id,)).fetchone()
                 new_quantity = intial_quantity[0] + 1
-                cursor.execute("UPDATE Student_token_ownership SET quantity = ? WHERE student_id = ? AND token_id = ?", (new_quantity, self.student_id, token_id,))
+                cursor.execute("UPDATE Owned_tokens SET quantity = ?, last_purchase_date = ?  WHERE student_id = ? AND token_id = ?", (new_quantity, purchase_date, self.student_id, token_id,))
                 cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_sum, self.student_id))
                 conn.commit()
                 messagebox.showinfo('',"Token purchased!")
-            self.student_points = new_sum
+                self.student_points = new_sum
 
 class Teacher(User):
-    def __init__(self, Id, password, first_name, last_name, subject):
+    def __init__(self, Id, password, title, first_name, last_name, subject):
         super().__init__(password, first_name, last_name)
         self.teacher_id = Id
+        self.teacher_password = password
+        self.teacher_title = title
         self.teacher_first_name = first_name
         self.teacher_last_name = last_name
         self.teacher_subject = subject
 
-    def CreateNewTeacher(EnterFirstName, EnterLastName, EnterPassword, EnterId, selected_subject, subjects):
+    def CreateNewTeacher(EnterFirstName, EnterLastName, EnterPassword, EnterId, selected_subject, selected_title, subjects, titles):
         id = EnterId.get()
         password = EnterPassword.get()
+        hashed = EncryptPassword(password)
         first_name = EnterFirstName.get()
         last_name = EnterLastName.get()
         subject = selected_subject
+        title = selected_title
         if first_name == '' or last_name== '' or id == '':
             messagebox.showerror('',"Account not created, please properly fill all fields to create an account")
         else:
             if subject not in subjects:
                 messagebox.showerror('',"Account not created, please select the subject you teach")
             else:
-                cursor.execute("INSERT INTO Teacher (teacher_id, password, first_name, last_name, subject) VALUES (?, ?, ?, ?, ?)", (id, password, first_name, last_name, subject,))
-                conn.commit()
-                messagebox.showinfo('',"Account created!")
-                RemoveWidgets()
-                Loginpage()
+                if title not in titles:
+                    messagebox.showerror('',"Account not created, please select a title")
+                else:
+                    cursor.execute("INSERT INTO Teacher (teacher_id, password_hash, title, first_name, last_name, subject) VALUES (?, ?, ?, ?, ?, ?)", (id, hashed, title, first_name, last_name, subject,))
+                    conn.commit()
+                    messagebox.showinfo('',"Account created!")
+                    RemoveWidgets()
+                    Loginpage()
 
+    def UpdateFields(self, Id_entry, selected_title, FirstName_entry, LastName_entry, selected_subject, teacher):
+        NewId = Id_entry.get()
+        NewTitle = selected_title
+        NewFirstName = FirstName_entry.get()
+        NewLastName = LastName_entry.get()
+        NewSubject = selected_subject
+        if NewId == teacher.teacher_id and NewTitle == teacher.teacher_title and NewFirstName == teacher.teacher_first_name and NewLastName == teacher.teacher_last_name and NewSubject == teacher.teacher_subject:
+            messagebox.showinfo('', "No fields changed")
+        else:
+            cursor.execute("UPDATE Teacher SET teacher_id = ?, title = ?, first_name = ?, last_name = ?, subject = ? WHERE teacher_id = ?", (NewId, NewTitle, NewFirstName, NewLastName, NewSubject, self.teacher_id))
+            conn.commit()
+            self.teacher_id = NewId
+            self.teacher_title = NewTitle
+            self.teacher_first_name = NewFirstName
+            self.teacher_last_name = NewLastName
+            self.teacher_subject = NewSubject
+            messagebox.showinfo('',"Successfully updated account details")
+            RemoveWidgets()
+            T_HomePage(teacher)
+
+    def UpdatePassword(self, Entry1, Entry2, window):
+        if Entry1 == Entry2:
+            if Entry1 == self.teacher_password:
+                messagebox.showinfo('', "Password not updated, your new password cannot be the same as your current password")
+                window.destroy()
+                T_HomePage(self)
+            else:
+                hashed = EncryptPassword(Entry1)
+                cursor.execute("UPDATE Teacher SET password_hash = ? WHERE teacher_id = ?", (hashed, self.teacher_id,))
+                conn.commit()
+                messagebox.showinfo('', "Password successfully updated!")
+                window.destroy()
+                T_HomePage(self)
+        else:
+            messagebox.showerror('', "Passwords entered in fields do not match, password not updated")
+            
     def ChangeStudentPoints(teacher, search, change, amount, reason):
         studentid = search.get()
         change = change.get()
@@ -159,12 +280,19 @@ class Teacher(User):
                 current_points = cursor.execute("SELECT total_points FROM Student WHERE student_id = ?", (studentid,)).fetchone()
                 if change == "Adding":
                     if amount.isdigit():
+                        student_houseid = cursor.execute("SELECT house_id FROM student WHERE student_id = ?", (studentid,)).fetchone()
+                        current_house_totalpoints = cursor.execute("SELECT house_totalpoints FROM House WHERE house_id = ?", (student_houseid[0],)).fetchone()
+                        new_housetotal = int(current_house_totalpoints[0] + int(amount))
                         new_points = int(current_points[0]) + int(amount)
+                        positive = str('+'+amount)
                         date_created =  datetime.now().strftime('%Y-%m-%d')
-                        cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_points, studentid))
-                        cursor.execute("INSERT INTO House_points_record (student_id, teacher_id, points, date_created, reason) VALUES (?, ?, ?, ?, ?)", (studentid, teacher.teacher_id, new_points, date_created, reason,))
+                        cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_points, studentid,))
+                        cursor.execute("INSERT INTO House_points_record (student_id, teacher_id, points, date_created, reason) VALUES (?, ?, ?, ?, ?)", (studentid, teacher.teacher_id, positive, date_created, reason,))
+                        cursor.execute("INSERT INTO Notifs (student_id, change, not_seen) VALUES (?, ?, ?)", (studentid, 'added', 1))
+                        cursor.execute("UPDATE House SET house_totalpoints = ? WHERE house_id = ?", (new_housetotal, student_houseid[0],))
                         conn.commit()
-                        messagebox.showinfo('Points Awarded',"Points successfully given to Student {}".format(studentid))
+                        messagebox.showinfo('Points Awarded',"{} points successfully given to student {}".format(amount, studentid))
+                        T_HomePage(teacher)
                     else:
                         messagebox.showerror('Invalid Input',"Amount must be a number")
                 elif change == "Deducting":
@@ -173,36 +301,54 @@ class Teacher(User):
                         if new_points < 0:
                             messagebox.showerror('',"Amount to be deducted is greater than what the student owns!")
                         else:
+                            negative = str('-'+amount)
                             date_created =  datetime.now().strftime('%Y-%m-%d')
                             cursor.execute("UPDATE Student SET total_points = ? WHERE student_id = ?", (new_points, studentid))
-                            cursor.execute("INSERT INTO House_points_record (student_id, teacher_id, points, date_created, reason) VALUES (?, ?, ?, ?, ?)", (studentid, teacher.teacher_id, new_points, date_created, reason,))
+                            cursor.execute("INSERT INTO House_points_record (student_id, teacher_id, points, date_created, reason) VALUES (?, ?, ?, ?, ?)", (studentid, teacher.teacher_id, negative, date_created, reason,))
+                            cursor.execute("INSERT INTO Notifs (student_id, change, not_seen) VALUES (?, ?, ?)", (studentid, 'deducted', 1))
                             conn.commit()
-                            messagebox.showinfo('Points Deducted',"Points deducted from Student {}".format(studentid))
+                            messagebox.showinfo('Points Deducted',"{} points deducted from student {}".format(amount, studentid))
+                            T_HomePage(teacher)
                     else:
                         messagebox.showerror('Invalid Input',"Amount must be a number")
             else:
                 messagebox.showerror("", 'Student does not exist!')
 
-def GetHouseID(selected_house):
-    Houses = {"Gazelles": 1, "Oryxes": 2, "Foxes": 3, "Falcons": 4}
-    houseId = Houses[selected_house]
-    return houseId
 
-def GetHouseColor(user):
+def EncryptPassword(password):    
+    password_bytes = password.encode('utf-8')
+    sha256_hash = hashlib.sha256()
+    sha256_hash.update(password_bytes)
+    encrypted_password = sha256_hash.hexdigest()
+    return encrypted_password
+
+def GetHouseID(selected_house):
+    houseId = cursor.execute("SELECT house_id FROM House WHERE house_name = ?", (selected_house,)).fetchone()
+    return houseId[0]
+
+def GetHouseName(house_id):
+    house_name = cursor.execute("SELECT house_name FROM House WHERE house_id = ?", (house_id,)).fetchone()
+    return house_name[0]
+
+#Retrieves a student's house color using the student's house_id
+def GetHouseColor(student):
     colors = {1: '#077A00', 2: '#C1A848', 3: '#000000', 4:  '#000B52'}
-    color = colors[user.student_houseId]
+    color = colors[student.student_houseId]
     return color
 
+#Retrieves the name of a token using their corresponding token_name
 def GetTokenId(token_name):
     tokens = {"Dress code exemption":1, "Cafeteria coupon":2, "One day off":3, "null":4}
     token_id = tokens[token_name]
     return  token_id
 
+#Retrieves the descriptions of each token using their token_ids
 def GetTokenDesc(token_id):
     desc = cursor.execute("SELECT description FROM Token where token_id = ?",(token_id,)).fetchone()
     return desc[0]
 
-def ApplyFilters(frame, class_filter, points_filter, house_filter):
+
+def ApplyStudentListFilters(frame, class_filter, points_filter, house_filter):
     for widget in frame.winfo_children():
         widget.destroy()
     if house_filter.get() == "All":
@@ -228,32 +374,21 @@ def ApplyFilters(frame, class_filter, points_filter, house_filter):
             else:
                 Records = cursor.execute("SELECT student_id, first_name, last_name, grade, total_points, house_name FROM Student, House WHERE Student.house_id = House.house_id AND Student.grade = ? AND House.house_name = ? ORDER BY total_points ASC", (class_filter.get(), house_filter.get(),)).fetchall()
 
-    column1 = ctk.CTkButton(frame, text='Student ID', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
-    column1.grid(row=0, column=0)
+    columns = ['Student ID', 'First Name', 'Last Name', 'Year Group', 'Total Points', 'House']
+    for i in range(6):
+        column = ctk.CTkButton(frame, text=columns[i], font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
+        column.grid(row=0, column=i)
 
-    column2 = ctk.CTkButton(frame, text='First Name', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
-    column2.grid(row=0, column=1)
-    
-    column3 = ctk.CTkButton(frame, text='Last Name', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
-    column3.grid(row=0, column=2)
-
-    column4 = ctk.CTkButton(frame, text='Year Group', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
-    column4.grid(row=0, column=3)
-
-    column5 = ctk.CTkButton(frame, text='Total Points', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
-    column5.grid(row=0, column=4)
-    
-    column6 = ctk.CTkButton(frame, text='House', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=116, height=20, hover='disabled')
-    column6.grid(row=0, column=5)
     if Records != []:
         for i, record in enumerate(Records):
             for j, value in enumerate(record):
                 button = ctk.CTkButton(frame, text=f'{value}', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=116, height=20, hover='disabled')
                 button.grid(row=i+1, column=j)
     else:
-        message = ctk.CTkButton(frame, text="No data", text_color='black',  font=('Franklin Gothic Condensed', 20), fg_color='light grey', border_width=2, width=500, height=100, hover='disabled')
+        message = ctk.CTkButton(frame, text="No data", text_color='black',  font=('Franklin Gothic Condensed', 45), fg_color='light grey', border_width=2, width=700, height=100, hover='disabled')
         message.grid(row=5, column=0, columnspan=6)  
 
+#Validation for entry widgets
 def ValidatePointAmount(text):
     max_chars = 4
     if len(text) > max_chars:
@@ -262,32 +397,56 @@ def ValidatePointAmount(text):
         return False
     return True
 
+def IdEntryValidation(text):
+    max_chars = 10
+    if len(text) > max_chars:
+        return False
+    if not text.isdigit() and text != "":
+        return False
+    return True
+
+def LetterValidation(text):
+    max_chars = 15
+    if len(text) > max_chars:
+        return False
+    if not text.isalpha() and text != "":
+        return False
+    return True
+
+def Toggle(field, show_btn, student):
+    if field.cget("show") == "*":
+        field.config(text=student.student_password, show="")
+        field.config(text="Hide password")
+    else:
+        field.config(text="********", show="*")
+        show_btn.config(text="Show password")
+
+#Function that is used to clear widgets from the window
 def RemoveWidgets():
     for widget in window.winfo_children():
         widget.destroy()
 
+####Program        
 def Loginpage():
     RemoveWidgets()
     login_frame = ctk.CTkFrame(window, fg_color=default_color, border_width=50, border_color='grey')
     login_frame.pack(fill='both', expand=True)
 
-    titleLabel = ctk.CTkLabel(login_frame, text='ASCS House Points', text_color='white', font=('Franklin Gothic Condensed', 60), fg_color=default_color)
-    titleLabel.pack(pady=(75, 60))
+    titleLabel = ctk.CTkLabel(login_frame, text='ASCS House Points', text_color='white', font=('Franklin Gothic Condensed', 80), fg_color=default_color)
+    titleLabel.pack(pady=(100, 60))
 
     input_frame = ctk.CTkFrame(login_frame, fg_color=default_color)
     input_frame.pack()
 
-    id_label = ctk.CTkLabel(input_frame, text='ID number', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color)
-    id_label.grid(row=0, column=0)
-    
-    password_label = ctk.CTkLabel(input_frame, text='Password', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color)
-    password_label.grid(row=1, column=0)
+    ctk.CTkLabel(input_frame, text='ID number', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color).grid(row=0, column=0)
+    ctk.CTkLabel(input_frame, text='Password', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color).grid(row=1, column=0)
 
-    Id_entry = ctk.CTkEntry(input_frame)
-    Id_entry.grid(row=0, column=1, padx=5, pady=10)
+    validation_cmd = window.register(IdEntryValidation)
+    Id_entry = ctk.CTkEntry(input_frame, font=('franklin gothic condensed', 15), validate="key", validatecommand=(validation_cmd, "%P"))
+    Id_entry.grid(row=0, column=1, pady=10)
 
-    password_entry = ctk.CTkEntry(input_frame, show='*')
-    password_entry.grid(row=1, column=1, padx=5, pady=10)
+    password_entry = ctk.CTkEntry(input_frame, font=('franklin gothic condensed', 15), show='*')
+    password_entry.grid(row=1, column=1, pady=10)
 
     selected_role = ctk.StringVar()
     options = ["Teacher", "Student"]
@@ -295,14 +454,14 @@ def Loginpage():
     rolecombobox.grid(row=2, column=0, columnspan=2, padx=10, pady=20)
     rolecombobox.set("Select a role")
 
-    submit_btn = ctk.CTkButton(input_frame, text='Submit', command=lambda:User.login(selected_role, Id_entry, password_entry), font=('Franklin gothic condensed', 20), text_color='black',fg_color='white', border_width=3, border_color='dark grey')
+    submit_btn = ctk.CTkButton(input_frame, text='Submit', command=lambda: User.login(selected_role, Id_entry, password_entry), font=('Franklin gothic condensed', 20), text_color='black',fg_color='white', border_width=3, border_color='dark grey')
     submit_btn.grid(row=3, columnspan=2, pady=10)
-    
-    createstudentacc_btn = ctk.CTkButton(input_frame, text='Create a student account', command=lambda:CreateStudentPage(), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='dark grey')
-    createstudentacc_btn.grid(row=4, column=1, padx=10, pady=15)
-    
-    createteacheracc_btn = ctk.CTkButton(input_frame, text='Create a teacher account', command=lambda:CreateTeacherPage(), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='dark grey')
-    createteacheracc_btn.grid(row=4, column=0, padx=10,pady=15)
+
+    createstudentacc_btn = ctk.CTkButton(input_frame, text='Create a student account', command=lambda: CreateStudentPage(), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='dark grey')
+    createstudentacc_btn.grid(row=4, column=1, padx=15, pady=15)
+
+    createteacheracc_btn = ctk.CTkButton(input_frame, text='Create a teacher account', command=lambda: CreateTeacherPage(), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='dark grey')
+    createteacheracc_btn.grid(row=4, column=0, padx=15,pady=15)
 
 def CreateStudentPage():
     RemoveWidgets()
@@ -321,16 +480,18 @@ def CreateStudentPage():
     ctk.CTkLabel(entryframe, text='Enter a password', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color).grid(row=2, column=0, padx=15, pady=20)
     ctk.CTkLabel(entryframe, text='Select your House', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color).grid(row=2, column=2, padx=15, pady=20)
 
-    EnterFirstName = ctk.CTkEntry(entryframe)
+    validation_cmd1 = window.register(LetterValidation)
+    EnterFirstName = ctk.CTkEntry(entryframe, font=('franklin gothic condensed', 15), validate="key", validatecommand=(validation_cmd1, "%P"))
     EnterFirstName.grid(row=0, column=1)
 
-    EnterLastName = ctk.CTkEntry(entryframe)
+    EnterLastName = ctk.CTkEntry(entryframe, font=('franklin gothic condensed', 15), validate="key", validatecommand=(validation_cmd1, "%P"))
     EnterLastName.grid(row=0, column=3)
 
-    EnterId = ctk.CTkEntry(entryframe)
+    validation_cmd2 = window.register(IdEntryValidation)
+    EnterId = ctk.CTkEntry(entryframe, font=('franklin gothic condensed', 15), validate="key", validatecommand=(validation_cmd2, "%P"))
     EnterId.grid(row=1, column=1)
 
-    EnterPassword = ctk.CTkEntry(entryframe)
+    EnterPassword = ctk.CTkEntry(entryframe, font=('franklin gothic condensed', 15))
     EnterPassword.grid(row=2, column=1)
 
     selected_class = ctk.StringVar()
@@ -344,6 +505,7 @@ def CreateStudentPage():
     houses = ["Gazelles", "Oryxes","Foxes","Falcons"]
     housecombobox = ctk.CTkComboBox(entryframe, values=houses, state='readonly', variable=selected_house)
     housecombobox.grid(row=2, column=3)
+    housecombobox.set("House")
     housecombobox.configure(font=('franklin gothic condensed', 15))
 
     create_btn = ctk.CTkButton(entryframe, text='Create account', bg_color='black', command=lambda:Student.CreateNewStudent(EnterFirstName, EnterLastName, EnterPassword, EnterId, selected_class, selected_house.get(), year_groups), 
@@ -366,72 +528,97 @@ def CreateTeacherPage():
     ctk.CTkLabel(entryframe, text='Enter your first name', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color).grid(row=0, column=0, padx=15, pady=20)
     ctk.CTkLabel(entryframe, text='Enter your last name', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color).grid(row=0, column=2, padx=15, pady=20)
     ctk.CTkLabel(entryframe, text='Enter an ID number', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color).grid(row=1, column=0, padx=15, pady=20)
-    ctk.CTkLabel(entryframe, text='Select your subject', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color).grid(row=1, column=2, padx=15, pady=20)
+    ctk.CTkLabel(entryframe, text='Select your subject', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color).grid(row=2, column=2, padx=15, pady=20)
     ctk.CTkLabel(entryframe, text='Enter a password', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color).grid(row=2, column=0, padx=15, pady=20)
+    ctk.CTkLabel(entryframe, text='Select your title', text_color='white', font=('Franklin Gothic Condensed', 25), fg_color=default_color).grid(row=1, column=2, padx=15, pady=20)
 
-    EnterFirstName = ctk.CTkEntry(entryframe)
+    validation_cmd1 = window.register(LetterValidation)
+    EnterFirstName = ctk.CTkEntry(entryframe, font=('franklin gothic condensed', 15), validate="key", validatecommand=(validation_cmd1, "%P"))
     EnterFirstName.grid(row=0, column=1)
 
-    EnterLastName = ctk.CTkEntry(entryframe)
+    EnterLastName = ctk.CTkEntry(entryframe, font=('franklin gothic condensed', 15), validate="key", validatecommand=(validation_cmd1, "%P"))
     EnterLastName.grid(row=0, column=3)
 
-    EnterId = ctk.CTkEntry(entryframe)
+    validation_cmd2 = window.register(IdEntryValidation)
+    EnterId = ctk.CTkEntry(entryframe, font=('franklin gothic condensed', 15), validate="key", validatecommand=(validation_cmd2, "%P"))
     EnterId.grid(row=1, column=1)
 
-    EnterPassword = ctk.CTkEntry(entryframe)
+    EnterPassword = ctk.CTkEntry(entryframe, font=('franklin gothic condensed', 15))
     EnterPassword.grid(row=2, column=1)
 
     selected_subject = ctk.StringVar()
     subjects = ["Mathematics", "Physics", "Biology", "Chemistry", "Geography", "Psychology", "History", "Business", "Computer Science", "English"]
     subjectcombobox = ctk.CTkComboBox(entryframe, values=subjects,state='readonly', variable=selected_subject)
-    subjectcombobox.grid(row=1, column=3)
-    subjectcombobox.set("Subjects")
+    subjectcombobox.grid(row=2, column=3)
+    subjectcombobox.set("Subject")
     subjectcombobox.configure(font=('franklin gothic condensed', 20))
 
-    create_btn = ctk.CTkButton(entryframe, text='Create account', bg_color='black', command=lambda:Teacher.CreateNewTeacher(EnterFirstName, EnterLastName, EnterPassword, EnterId, selected_subject.get(), subjects), 
+    selected_title = ctk.StringVar()
+    titles = ["Mr.", "Ms.", "Mrs."]
+    titlecombobox = ctk.CTkComboBox(entryframe, values=titles,state='readonly', variable=selected_title)
+    titlecombobox.grid(row=1, column=3)
+    titlecombobox.set("Mr/Ms/Mrs")
+    titlecombobox.configure(font=('franklin gothic condensed', 20))
+
+    create_btn = ctk.CTkButton(entryframe, text='Create account', bg_color='black', command=lambda:Teacher.CreateNewTeacher(EnterFirstName, EnterLastName, EnterPassword, EnterId, selected_subject.get(), selected_title.get(), subjects, titles), 
     font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='dark grey')
     create_btn.grid(row=4, columnspan=4, pady=20)
 
     back_btn = ctk.CTkButton(entryframe, command=lambda:Loginpage(), text='Back', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='dark grey')
     back_btn.grid(row=5, columnspan=4)
 
-def TeacherHomePage(teacher):
+def T_HomePage(teacher):
     RemoveWidgets()
-    TeacherName = str(teacher.teacher_first_name + ' ' + teacher.teacher_last_name)
+    TeacherName = str(teacher.teacher_title + ' ' + teacher.teacher_first_name + ' ' + teacher.teacher_last_name)
     TeacherSubject = str(teacher.teacher_subject)
 
     TeacherHome_frame = ctk.CTkFrame(window, fg_color=default_color)
     TeacherHome_frame.pack(fill='both', expand=True)
 
-    topbar_frame = ctk.CTkFrame(TeacherHome_frame, fg_color='light grey', border_width=2, border_color='black', width=800, height=60)
+    PageTitle = ctk.CTkButton(TeacherHome_frame, text='Home', font=('Franklin Gothic Condensed', 45), text_color='black', fg_color='white', border_width=2, width=250, height=50, hover='disabled')
+    PageTitle.place(x=250, y=75)
+
+    buttons_frame = ctk.CTkFrame(TeacherHome_frame, fg_color=default_color)
+    buttons_frame.place(x=300, y=150)
+
+    topbar_frame = ctk.CTkFrame(TeacherHome_frame, fg_color='light grey', border_width=2, border_color='black', width=900, height=60)
     topbar_frame.place(x=198, y=0)
         
-    TeacherName_label = ctk.CTkButton(topbar_frame, text=TeacherName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=175, height=60, hover='disabled')
+    TeacherName_label = ctk.CTkButton(topbar_frame, text=TeacherName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=200, height=60, hover='disabled')
     TeacherName_label.place(x=0, y=0)
 
     TeacherSubject_label = ctk.CTkButton(topbar_frame, text=TeacherSubject, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=150, height=60, hover='disabled')
-    TeacherSubject_label.place(x=174)
+    TeacherSubject_label.place(x=199)
 
     options_frame = ctk.CTkFrame(TeacherHome_frame, fg_color='#5F6262', border_width=2, border_color='black', width=200, height=600)
     options_frame.pack(side='left', fill='y', expand=False)
 
-    #manage_acc_btn = ctk.CTkButton(options_frame, command=lambda:TeacherAccManagementPage(), text='Account\nManagement', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
-    #manage_acc_btn.place(x=3, y=275)
+    acc_details_btn = ctk.CTkButton(options_frame, text='Account Details', command=lambda:T_AccountDetailsPage(teacher, TeacherName, TeacherSubject), font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    acc_details_btn.grid(row=0, pady=(290, 20))
 
     empty_btn = ctk.CTkButton(options_frame, text='', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
-    empty_btn.place(x=3, y=340)
+    empty_btn.grid(row=1, pady=(0, 20))
 
-    logout_btn = ctk.CTkButton(options_frame, command=lambda:logout(teacher), text='Log out', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
-    logout_btn.place(x=3, y=400)
+    logout_btn = ctk.CTkButton(options_frame, command=lambda:ConfirmLogout(teacher), text='Log out', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    logout_btn.grid(row=2, pady=(0, 20))
 
-    managestudents_btn = ctk.CTkButton(TeacherHome_frame, command=lambda:ManageStudentsPage(teacher, TeacherName, TeacherSubject), text='Add or Deduct\nhouse points', font=('Franklin Gothic Condensed', 22), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
-    managestudents_btn.place(x=675, y=125)
+    sizer = ctk.CTkButton(options_frame, text='', fg_color='#5F6262', width=200, height=0, hover='disabled')
+    sizer.grid(row=3, pady=(700, 0))
 
-    viewstudents_btn = ctk.CTkButton(TeacherHome_frame, command=lambda:ViewStudentListPage(teacher, TeacherName, TeacherSubject), text='Student\nList', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
-    viewstudents_btn.place(x=375, y=375)
+    Leaderboard_btn = ctk.CTkButton(buttons_frame, command=lambda:T_LeaderboardsPage(teacher, TeacherName, TeacherSubject), text='Leaderboard', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height=150, width=150, border_width=1)
+    Leaderboard_btn.grid(row=0, column=0, padx=25, pady=25)
 
-def Teacher_CommonWidgets(Mainframe, teacher, TeacherName, TeacherSubject):
-    topbar_frame = ctk.CTkFrame(Mainframe, fg_color='light grey', border_width=2, border_color='black', width=800, height=60)
+    addOrdeductpoints_btn = ctk.CTkButton(buttons_frame, command=lambda:T_AddOrDeductPointsPage(teacher, TeacherName, TeacherSubject), text='Add or Deduct\nhouse points', font=('Franklin Gothic Condensed', 22), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
+    addOrdeductpoints_btn.grid(row=0, column=1, padx=100, pady=50)
+
+    studentlist_btn = ctk.CTkButton(buttons_frame, command=lambda:T_StudentListPage(teacher, TeacherName, TeacherSubject), text='Student\nList', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
+    studentlist_btn.grid(row=1, column=0, padx=100, pady=50)
+
+    pointrecord_btn = ctk.CTkButton(buttons_frame, command=lambda:T_StudentRecordsPage(teacher, TeacherName, TeacherSubject), text='Student\nHouse Point\nRecords', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height=150, width=150, border_width=1)
+    pointrecord_btn.grid(row=1, column=1, padx=100, pady=50)
+
+def T_CommonWidgets(Frame, teacher, TeacherName, TeacherSubject):
+    topbar_frame = ctk.CTkFrame(Frame, fg_color='light grey', border_width=2, border_color='black', width=900, height=60)
     topbar_frame.place(x=198, y=0)
         
     TeacherName_label = ctk.CTkButton(topbar_frame, text=TeacherName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=175, height=60, hover='disabled')
@@ -440,18 +627,159 @@ def Teacher_CommonWidgets(Mainframe, teacher, TeacherName, TeacherSubject):
     TeacherSubject_label = ctk.CTkButton(topbar_frame, text=TeacherSubject, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=150, height=60, hover='disabled')
     TeacherSubject_label.place(x=174)
 
-    options_frame = ctk.CTkFrame(Mainframe, fg_color='#5F6262', border_width=2, border_color='black', width=200, height=600)
+    options_frame = ctk.CTkFrame(Frame, fg_color='#5F6262', border_width=2, border_color='black', width=200, height=600)
     options_frame.pack(side='left', fill='y', expand=False)
 
-    back_btn = ctk.CTkButton(options_frame, command=lambda:TeacherHomePage(teacher), text='Back', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', width=190, height=50, border_width=1)
-    back_btn.place(x=3, y=500)
+    acc_details_btn = ctk.CTkButton(options_frame, text='Account Details', command=lambda:T_AccountDetailsPage(teacher, TeacherName, TeacherSubject), font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    acc_details_btn.grid(row=0, pady=(290, 20))
 
-def ManageStudentsPage(teacher, TeacherName, TeacherSubject):
+    empty_btn = ctk.CTkButton(options_frame, text='', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    empty_btn.grid(row=1, pady=(0, 20))
+
+    logout_btn = ctk.CTkButton(options_frame, command=lambda:ConfirmLogout(teacher), text='Log out', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=190, height=50)
+    logout_btn.grid(row=2, pady=(0, 20))
+
+    sizer = ctk.CTkButton(options_frame, text='', fg_color='#5F6262', width=200, height=0, hover='disabled')
+    sizer.grid(row=3, pady=(700, 0))
+
+    home_btn = ctk.CTkButton(options_frame, command=lambda:T_HomePage(teacher), text='Home', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', width=190, height=50, border_width=1)
+    home_btn.place(x=3, y=500)
+
+def T_AccountDetailsPage(teacher, TeacherName, TeacherSubject):
+    RemoveWidgets()
+    T_AccountDetailsPage_frame = ctk.CTkFrame(window, fg_color=default_color)
+    T_AccountDetailsPage_frame.pack(fill='both', expand=True)
+    
+    T_CommonWidgets(T_AccountDetailsPage_frame, teacher, TeacherName, TeacherSubject)
+
+    PageTitle = ctk.CTkButton(T_AccountDetailsPage_frame, text='Account Details', font=('Franklin Gothic Condensed', 45), text_color='black', fg_color='white', border_width=2, width=250, height=50, hover='disabled')
+    PageTitle.place(x=250, y=125)
+
+    details_frame = ctk.CTkFrame(T_AccountDetailsPage_frame, fg_color=default_color)
+    details_frame.place(x=250, y=250)
+
+    first_name_label = ctk.CTkLabel(details_frame, text ='First name', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color)
+    first_name_label.grid(row=0, column=0, padx=30, pady=20)
+
+    FirstName_entry =  ctk.CTkEntry(details_frame, font=('franklin gothic condensed', 20))
+    FirstName_entry.insert(0, teacher.teacher_first_name)
+    FirstName_entry.grid(row=0, column=1, padx=30, pady=20)
+
+    last_name_label = ctk.CTkLabel(details_frame, text ='Last name', text_color='white',font=('Franklin Gothic Condensed', 30), fg_color=default_color)
+    last_name_label.grid(row=0, column=2, padx=30, pady=20)
+
+    LastName_entry = ctk.CTkEntry(details_frame, font=('franklin gothic condensed', 20))
+    LastName_entry.insert(0, teacher.teacher_last_name)
+    LastName_entry.grid(row=0, column=3, padx=30, pady=20) 
+
+    id_label = ctk.CTkLabel(details_frame, text ='ID number', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color)
+    id_label.grid(row=1, column=0, padx=30, pady=20)
+
+    Id_entry = ctk.CTkEntry(details_frame, font=('franklin gothic condensed', 20))
+    Id_entry.insert(0, teacher.teacher_id)
+    Id_entry.grid(row=1, column=1, padx=30, pady=20)
+
+    password_label = ctk.CTkLabel(details_frame, text ='Password', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color)
+    password_label.grid(row=2, column=0, padx=30, pady=20)
+
+    password_btn = ctk.CTkButton(details_frame, text='Update Password', command=lambda:T_UpdatePasswordPage(teacher), text_color='black', font=('franklin gothic condensed', 20), fg_color='white', border_width=3, border_color='dark grey')
+    password_btn.grid(row=2, column=1, padx=30, pady=20)
+
+    class_label = ctk.CTkLabel(details_frame, text ='Title', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color)
+    class_label.grid(row=1, column=2, padx=30, pady=20)
+
+    selected_title = ctk.StringVar()
+    titles = ["Mr.", "Ms.", "Mrs."]
+    titlecombobox = ctk.CTkComboBox(details_frame, values=titles,state='readonly', variable=selected_title)
+    titlecombobox.grid(row=1, column=3, padx=30, pady=20)
+    titlecombobox.set(teacher.teacher_title)
+    titlecombobox.configure(font=('franklin gothic condensed', 20))
+
+    subject_label = ctk.CTkLabel(details_frame, text ='Subject', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color)
+    subject_label.grid(row=2, column=2, padx=30, pady=20)
+
+    selected_subject = ctk.StringVar()
+    subjects = ["Gazelles", "Oryxes","Foxes","Falcons"]
+    subjectscombobox = ctk.CTkComboBox(details_frame, values=subjects, state='readonly', variable=selected_subject)
+    subjectscombobox.grid(row=2, column=3, padx=30, pady=20)
+    subjectscombobox.set(teacher.teacher_subject)
+    subjectscombobox.configure(font=('franklin gothic condensed', 20))    
+
+    Change_details_btn = ctk.CTkButton(details_frame, text='Change details', command=lambda:teacher.UpdateFields(Id_entry, selected_title.get(), FirstName_entry, LastName_entry, selected_subject.get(), teacher), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='dark grey')
+    Change_details_btn.grid(row=3, columnspan=4, padx=30, pady=20)
+
+def T_UpdatePasswordPage(teacher):
+    password_window = ctk.CTkToplevel(window, fg_color=default_color)
+    password_window.geometry('400x350')
+    password_window.title('Update Password')
+    password_window.attributes('-topmost', True)
+    password_window.resizable(False, False)
+
+    ctk.CTkLabel(password_window, text='Enter your new password', font=('Franklin Gothic Condensed', 35), text_color='white', fg_color=default_color).pack(pady=30)
+
+    frame = ctk.CTkFrame(password_window, fg_color=default_color)
+    frame.pack()
+
+    ctk.CTkLabel(frame, text='New password', font=('Franklin Gothic Condensed', 25), text_color='white', fg_color=default_color).grid(row=1, column=0, padx=20, pady=15)
+    ctk.CTkLabel(frame, text='Confirm password', font=('Franklin Gothic Condensed', 25), text_color='white', fg_color=default_color).grid(row=2, column=0, padx=20, pady=15)
+
+    entry1 = ctk.CTkEntry(frame, font=('Franklin Gothic Condensed', 17))
+    entry1.grid(row=1, column=1, padx=20, pady=15)
+
+    entry2 = ctk.CTkEntry(frame, font=('Franklin Gothic Condensed', 17))
+    entry2.grid(row=2, column=1, padx=20, pady=15)
+
+    submit_btn = ctk.CTkButton(frame, text='Submit', command=lambda:Teacher.UpdatePassword(teacher, entry1.get(), entry2.get(), password_window), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='grey')
+    submit_btn.grid(row=3, column=1, pady=20)
+
+    cancel_btn = ctk.CTkButton(frame, text='Cancel', command=password_window.destroy, font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='grey')
+    cancel_btn.grid(row=3, column=0, pady=20)
+
+def T_LeaderboardsPage(teacher, TeacherName, TeacherSubject):
+    RemoveWidgets()
+    LeaderboardsPage_frame = ctk.CTkFrame(window, fg_color=default_color)
+    LeaderboardsPage_frame.pack(fill='both', expand=True)
+
+    T_CommonWidgets(LeaderboardsPage_frame, teacher, TeacherName, TeacherSubject)
+
+    page_frame = ctk.CTkFrame(LeaderboardsPage_frame, fg_color=default_color, width=1000, height=600)
+    page_frame.place(x=200, y=75)
+
+    Pagetitle = ctk.CTkButton(page_frame, text='Student Leaderboard', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled')
+    Pagetitle.place(x=50, y=20)
+
+    StudentsLeaderboard(page_frame)
+    
+    gazelles_leaderboard = ctk.CTkButton(LeaderboardsPage_frame, text='Gazelles', command=lambda:SelectedHouseLeadeboard(page_frame, 1), text_color='black', font=('Franklin Gothic Condensed', 40), fg_color='white', border_width=2, border_color='black', width=160, height=60)
+    gazelles_leaderboard.place(x=275, y=200)
+
+    oryxes_leaderboard = ctk.CTkButton(LeaderboardsPage_frame, text='Oryxes', command=lambda:SelectedHouseLeadeboard(page_frame, 2), text_color='black', font=('Franklin Gothic Condensed', 40), fg_color='white', border_width=2, border_color='black', width=160, height=60)
+    oryxes_leaderboard.place(x=475, y=200)
+
+    foxes_leaderboard = ctk.CTkButton(LeaderboardsPage_frame, text='Foxes', command=lambda:SelectedHouseLeadeboard(page_frame, 3), text_color='black', font=('Franklin Gothic Condensed', 40), fg_color='white', border_width=2, border_color='black', width=160, height=60)
+    foxes_leaderboard.place(x=675, y=200)
+
+    falcons_leaderboard = ctk.CTkButton(LeaderboardsPage_frame, text='Falcons', command=lambda:SelectedHouseLeadeboard(page_frame, 4), text_color='black', font=('Franklin Gothic Condensed', 40), fg_color='white', border_width=2, border_color='black', width=160, height=60)
+    falcons_leaderboard.place(x=875, y=200)
+
+    def SelectedRanking(event):
+        if event == "House Rankings":
+            HousesLeaderboard(page_frame)
+        else:
+            StudentsLeaderboard(page_frame)
+
+    options = ["House Rankings", "Student Rankings"]
+    rankingscombobox = ctk.CTkComboBox(LeaderboardsPage_frame, values=options,state='readonly', command=SelectedRanking, width=200)
+    rankingscombobox.place(x=600, y=125)
+    rankingscombobox.set("Student Rankings")
+    rankingscombobox.configure(font=('franklin gothic condensed', 20))
+
+def T_AddOrDeductPointsPage(teacher, TeacherName, TeacherSubject):
     RemoveWidgets()
     ManageStudents_frame = ctk.CTkFrame(window, fg_color=default_color)
     ManageStudents_frame.pack(fill='both', expand=True)
 
-    Teacher_CommonWidgets(ManageStudents_frame, teacher, TeacherName, TeacherSubject)
+    T_CommonWidgets(ManageStudents_frame, teacher, TeacherName, TeacherSubject)
 
     Search_label = ctk.CTkLabel(ManageStudents_frame, text="Enter Student ID:", text_color='white', fg_color=default_color, font=('Franklin gothic condensed', 25))
     Search_label.place(x=385, y=135)
@@ -483,40 +811,89 @@ def ManageStudentsPage(teacher, TeacherName, TeacherSubject):
     submit_btn = ctk.CTkButton(ManageStudents_frame, text='Submit', command=lambda:Teacher.ChangeStudentPoints(teacher, search, change, amount, reason), font=('Franklin gothic condensed', 15), text_color='black', fg_color='white', border_width=3,border_color='dark grey')
     submit_btn.place(x=850, y=385)
     
-def ViewStudentListPage(teacher, TeacherName, TeacherSubject):
+def T_StudentListPage(teacher, TeacherName, TeacherSubject):
     RemoveWidgets()
-    ViewStudentList_frame = ctk.CTkFrame(window, fg_color=default_color)
-    ViewStudentList_frame.pack(fill='both', expand=True)
+    T_StudentListPage_frame = ctk.CTkFrame(window, fg_color=default_color)
+    T_StudentListPage_frame.pack(fill='both', expand=True)
     
-    Teacher_CommonWidgets(ViewStudentList_frame, teacher, TeacherName, TeacherSubject)
+    T_CommonWidgets(T_StudentListPage_frame, teacher, TeacherName, TeacherSubject)
 
+    pagetitle = ctk.CTkButton(T_StudentListPage_frame, text='Student list', font=('Franklin Gothic Condensed', 60), text_color='black', fg_color='white', border_width=2, width=250, height=50, hover='disabled')
+    pagetitle.place(x=250, y=100)
+
+    ctk.CTkLabel(T_StudentListPage_frame, text='Sort by Class', text_color='white', font=('franklin gothic condensed', 20)).place(x=645, y=220)
     class_filter = ctk.StringVar()
     year_groups = ["All", "9A", "9B", "9C", "9D", "10A", "10B", "10C", "10D", "11A", "11B", "11C", "11D", "12A", "12B", "12C", "12D", "13A", "13B", "13C", "13D"]
-    class_filter_combobox = ctk.CTkComboBox(ViewStudentList_frame, values=year_groups,state='readonly', variable=class_filter, font=('franklin gothic condensed', 15))
-    class_filter_combobox.place(x=645, y=150)
+    class_filter_combobox = ctk.CTkComboBox(T_StudentListPage_frame, values=year_groups,state='readonly', variable=class_filter, font=('franklin gothic condensed', 15))
+    class_filter_combobox.place(x=645, y=250)
     class_filter_combobox.set("All")
     
+    ctk.CTkLabel(T_StudentListPage_frame, text='Sort by no. of points', text_color='white', font=('franklin gothic condensed', 20)).place(x=445, y=220)
     points_filter = ctk.StringVar()
     points_range = ["Highest - Lowest", "Lowest - Highest"]
-    points_filter_combobox = ctk.CTkComboBox(ViewStudentList_frame, values=points_range, state='readonly', variable=points_filter, font=('franklin gothic condensed', 15))
-    points_filter_combobox.place(x=445, y=150)
+    points_filter_combobox = ctk.CTkComboBox(T_StudentListPage_frame, values=points_range, state='readonly', variable=points_filter, font=('franklin gothic condensed', 15))
+    points_filter_combobox.place(x=445, y=250)
     points_filter_combobox.set("Highest - Lowest")
 
+    ctk.CTkLabel(T_StudentListPage_frame, text='Sort by House', text_color='white', font=('franklin gothic condensed', 20)).place(x=245, y=220)
     house_filter = ctk.StringVar()
     houses = ["All", "Gazelles", "Oryxes", "Foxes", "Falcons"]
-    house_filter_combobox = ctk.CTkComboBox(ViewStudentList_frame, values=houses, state='readonly', variable=house_filter, font=('franklin gothic condensed', 15))
-    house_filter_combobox.place(x=245, y=150)
+    house_filter_combobox = ctk.CTkComboBox(T_StudentListPage_frame, values=houses, state='readonly', variable=house_filter, font=('franklin gothic condensed', 15))
+    house_filter_combobox.place(x=245, y=250)
     house_filter_combobox.set("All")
 
-    StudentList_frame = ctk.CTkScrollableFrame(ViewStudentList_frame, fg_color=default_color, bg_color=default_color, border_width=2, border_color='black', width=700, height=550)
-    StudentList_frame.place(x=245, y=190)
+    StudentList_frame = ctk.CTkScrollableFrame(T_StudentListPage_frame, fg_color=default_color, bg_color=default_color, border_width=2, border_color='black', width=700, height=550)
+    StudentList_frame.place(x=245, y=290)
 
-    ApplyFilters(StudentList_frame, class_filter, points_filter, house_filter)
+    ApplyStudentListFilters(StudentList_frame, class_filter, points_filter, house_filter)
 
-    apply_filters_btn = ctk.CTkButton(ViewStudentList_frame, text="Apply filters", command=lambda:ApplyFilters(StudentList_frame, class_filter, points_filter, house_filter), font=('Franklin gothic condensed', 15), text_color='black',fg_color='white', border_width=3, border_color='dark grey')
-    apply_filters_btn.place(x=825, y=150)
+    apply_filters_btn = ctk.CTkButton(T_StudentListPage_frame, text="Apply filters", command=lambda:ApplyStudentListFilters(StudentList_frame, class_filter, points_filter, house_filter), font=('Franklin gothic condensed', 15), text_color='black',fg_color='white', border_width=3, border_color='dark grey')
+    apply_filters_btn.place(x=825, y=250)
 
-def StudentHomePage(student):
+##InProgress
+def T_StudentRecordsPage(teacher, TeacherName, TeacherSubject):
+    RemoveWidgets()
+    StudentRecordsPage_frame = ctk.CTkFrame(window, fg_color=default_color)
+    StudentRecordsPage_frame.pack(fill='both', expand=True)
+
+    pagetitle = ctk.CTkButton(StudentRecordsPage_frame, text='Student House Point records', font=('Franklin Gothic Condensed', 45), text_color='black', fg_color='white', border_width=2, width=250, height=50, hover='disabled')
+    pagetitle.place(x=250, y=75)
+
+    T_CommonWidgets(StudentRecordsPage_frame, teacher, TeacherName, TeacherSubject)
+    
+    Records_frame = ctk.CTkScrollableFrame(StudentRecordsPage_frame, fg_color=default_color, border_width=2, border_color='black', width=900, height=550)    
+    Records_frame.place(x=199, y=200)
+
+    column = ['Teacher ID', 'Teacher Name', 'Student ID', 'Student Name', 'Points\nAdded/Deducted', 'Date']
+    for i in range(6):
+        label = ctk.CTkButton(Records_frame, text=column[i], font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=150, height=50, hover='disabled')
+        label.grid(row=0, column=i)
+
+    Records = cursor.execute("SELECT student_id, teacher_id, points, date_created FROM House_points_record").fetchall()
+    for i in range(len(Records)):
+        label = ctk.CTkButton(Records_frame, text=Records[i][1], font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=150, height=20, hover='disabled')
+        label.grid(row=i+1, column=0)
+
+        name = cursor.execute("SELECT title, first_name, last_name FROM Teacher WHERE teacher_id = ?", (Records[i][1],)).fetchone()
+        fullname = (name[0] + ' ' + name[1] + name[2])
+        label = ctk.CTkButton(Records_frame, text=fullname, font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=150, height=20, hover='disabled')
+        label.grid(row=i+1, column=1)
+
+        label = ctk.CTkButton(Records_frame, text=Records[i][0], font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=150, height=20, hover='disabled')
+        label.grid(row=i+1, column=2)
+
+        name = cursor.execute("SELECT first_name, last_name FROM Student WHERE student_id = ?", (Records[i][0],)).fetchone()
+        fullname = (name[0] + ' ' + name[1])
+        label = ctk.CTkButton(Records_frame, text=fullname, font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=150, height=20, hover='disabled')
+        label.grid(row=i+1, column=3)        
+
+    for i in range(len(Records)):
+        for j in range(1,3):
+            label = ctk.CTkButton(Records_frame, text=Records[i][j+1], font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=150, height=20, hover='disabled')
+            label.grid(row=i+1, column=j+3)
+
+###Students' Side    
+def S_HomePage(student):
     RemoveWidgets()
     StudentName = str(student.student_first_name + '  ' + student.student_last_name)
     StudentClass = str(student.student_grade)
@@ -525,7 +902,13 @@ def StudentHomePage(student):
     StudentHome_frame = ctk.CTkFrame(window, fg_color=default_color)
     StudentHome_frame.pack(fill='both', expand=True)
 
-    topbar_frame = ctk.CTkFrame(StudentHome_frame, fg_color='light grey', border_width=2, border_color='black', width=800, height=60)
+    PageTitle = ctk.CTkButton(StudentHome_frame, text='Home', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled')
+    PageTitle.place(x=250, y=100)
+
+    buttons_frame = ctk.CTkFrame(StudentHome_frame, fg_color=default_color)
+    buttons_frame.place(x=300, y=200)
+
+    topbar_frame = ctk.CTkFrame(StudentHome_frame, fg_color='light grey', border_width=2, border_color='black', width=900, height=60)
     topbar_frame.place(x=198, y=0)
     
     StudentName_label = ctk.CTkButton(topbar_frame, text=StudentName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=175, height=60, hover='disabled')
@@ -535,7 +918,7 @@ def StudentHomePage(student):
     StudentClass_label.place(x=174)
 
     StudentPoints_label = ctk.CTkButton(topbar_frame, text=("My total Points:  {}".format(student.student_points)), font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='light grey', border_width=2, width=300, height=60, hover='disabled')
-    StudentPoints_label.place(x=500)
+    StudentPoints_label.place(x=600)
 
     options_frame = ctk.CTkFrame(StudentHome_frame, fg_color=color, border_width=2, border_color='black', width=200, height=600)
     options_frame.pack(side='left', fill='y', expand=False)
@@ -543,26 +926,37 @@ def StudentHomePage(student):
     houseimage_btn = ctk.CTkButton(options_frame, text="(House image goes here)", text_color='black', fg_color='white', height= 150, width=150, border_width=1)
     houseimage_btn.grid(row=0, pady=(50, 85))
 
-    manage_acc_btn = ctk.CTkButton(options_frame, command=lambda:StudentAccManagementPage(student, StudentName, StudentClass, color), text='Account\nManagement', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
-    manage_acc_btn.grid(row=1, pady=(0, 20))
+    acc_details_btn = ctk.CTkButton(options_frame, command=lambda:S_AccountDetailsPage(student, StudentName, StudentClass, color), text='Account Details', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
+    acc_details_btn.grid(row=1, pady=(0, 20))
 
-    check_notifs_btn = ctk.CTkButton(options_frame, text='Notifications', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
+    check_notifs_btn = ctk.CTkButton(options_frame, text='Show Notifications', command=lambda:Student.ShowNotifs(student), font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
     check_notifs_btn.grid(row=2, pady=(0, 20))
 
-    logout_btn = ctk.CTkButton(options_frame, command=lambda:logout(student), text='Log out', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
+    logout_btn = ctk.CTkButton(options_frame, command=lambda:ConfirmLogout(student), text='Log out', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
     logout_btn.grid(row=3, pady=(0, 20))
 
     sizer = ctk.CTkButton(options_frame, text='', fg_color=color, width=200, height=0, hover='disabled')
     sizer.grid(row=4, pady=(700, 0))
 
-    Shop_btn = ctk.CTkButton(StudentHome_frame, command=lambda:TokenShopPage(student, StudentName, StudentClass, color), text='Token\nShop', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
-    Shop_btn.place(x=675, y=375)
+    Leaderboard_btn = ctk.CTkButton(buttons_frame, command=lambda:S_LeaderboardsPage(student, StudentName, StudentClass, color), text='Leaderboard', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height=150, width=150, border_width=1)
+    Leaderboard_btn.grid(row=0, column=0, padx=25, pady=25)
 
-    viewhistory_btn = ctk.CTkButton(StudentHome_frame, command=lambda:ViewPurchaseHistoryPage(student, StudentName, StudentClass, color), text='View\nPurchase\nHistory', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height= 150, width=150, border_width=1)
-    viewhistory_btn.place(x=375, y=375)
+    OwnedTokens_btn = ctk.CTkButton(buttons_frame, command=lambda:S_OwnedTokensPage(student, StudentName, StudentClass, color), text='Owned\nTokens', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height=150, width=150, border_width=1)
+    OwnedTokens_btn.grid(row=0, column=1, padx=25, pady=25)
 
-def Student_CommonWidgets(Frame, student, StudentName, StudentClass, color):
-    topbar_frame = ctk.CTkFrame(Frame, fg_color='light grey', border_width=2, border_color='black', width=800, height=60)
+    Shop_btn = ctk.CTkButton(buttons_frame, command=lambda:S_TokenShopPage(student, StudentName, StudentClass, color), text='Token\nShop', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height=150, width=150, border_width=1)
+    Shop_btn.grid(row=0, column=2, padx=25, pady=25)
+
+    purchasehistory_btn = ctk.CTkButton(buttons_frame, command=lambda:S_PurchaseHistoryPage(student, StudentName, StudentClass, color), text='Purchase\nHistory', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height=150, width=150, border_width=1)
+    purchasehistory_btn.grid(row=1, column=0, columnspan=2, padx=100, pady=25)
+
+    pointrecord_btn = ctk.CTkButton(buttons_frame, command=lambda:S_PointRecordsPage(student, StudentName, StudentClass, color), text='House Point\nRecords', font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='white', height=150, width=150, border_width=1)
+    pointrecord_btn.grid(row=1, column=1, columnspan=2, padx=100, pady=25)
+
+    Student.CheckNotifs(student)
+
+def S_CommonWidgets(Frame, student, StudentName, StudentClass, color):
+    topbar_frame = ctk.CTkFrame(Frame, fg_color='light grey', border_width=2, border_color='black', width=900, height=60)
     topbar_frame.place(x=198, y=0)
     
     StudentName_label = ctk.CTkButton(topbar_frame, text=StudentName, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=175, height=60, hover='disabled')
@@ -572,7 +966,7 @@ def Student_CommonWidgets(Frame, student, StudentName, StudentClass, color):
     StudentClass_label.place(x=174)
 
     StudentPoints_label = ctk.CTkButton(topbar_frame, text=("My total Points:  {}".format(student.student_points)), font=('Franklin Gothic Condensed', 25), text_color='black', fg_color='light grey', border_width=2, width=300, height=60, hover='disabled')
-    StudentPoints_label.place(x=500)
+    StudentPoints_label.place(x=600)
 
     options_frame = ctk.CTkFrame(Frame, fg_color=color, border_width=2, border_color='black', width=200, height=600)
     options_frame.pack(side='left', fill='y', expand=False)
@@ -580,126 +974,393 @@ def Student_CommonWidgets(Frame, student, StudentName, StudentClass, color):
     houseimage_btn = ctk.CTkButton(options_frame, text="(House image goes here)", text_color='black', fg_color='white', height= 150, width=150, border_width=1)
     houseimage_btn.grid(row=0, pady=(50, 85))
 
-    manage_acc_btn = ctk.CTkButton(options_frame, command=lambda:StudentAccManagementPage(student, StudentName, StudentClass, color), text='Account\nManagement', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
+    manage_acc_btn = ctk.CTkButton(options_frame, command=lambda:S_AccountDetailsPage(student, StudentName, StudentClass, color), text='Account Details', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
     manage_acc_btn.grid(row=1, pady=(0, 20))
 
-    check_notifs_btn = ctk.CTkButton(options_frame, text='Notifications', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
+    check_notifs_btn = ctk.CTkButton(options_frame, text='Notifications', command=lambda:Student.ShowNotifs(student), font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
     check_notifs_btn.grid(row=2, pady=(0, 20))
 
-    logout_btn = ctk.CTkButton(options_frame, command=lambda:logout(student), text='Log out', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
+    logout_btn = ctk.CTkButton(options_frame, command=lambda:ConfirmLogout(student), text='Log out', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=1, width=180, height=50)
     logout_btn.grid(row=3, pady=(0, 20))
 
-    back_btn = ctk.CTkButton(options_frame, command=lambda:StudentHomePage(student), text='Back', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', width=180, height=50, border_width=1)
-    back_btn.grid(row=4, pady=(0, 20))
+    home_btn = ctk.CTkButton(options_frame, command=lambda:S_HomePage(student), text='Home', font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', width=180, height=50, border_width=1)
+    home_btn.grid(row=4, pady=(0, 20))
 
     sizer = ctk.CTkButton(options_frame, text='', fg_color=color, width=200, height=0, hover='disabled')
     sizer.grid(row=5, pady=(700, 0))
 
-def StudentAccManagementPage(student, StudentName, StudentClass,  color):
+def S_AccountDetailsPage(student, StudentName, StudentClass,  color):
     RemoveWidgets()
     StudentAccManagement_frame = ctk.CTkFrame(window, fg_color=default_color)
     StudentAccManagement_frame.pack(fill='both', expand=True)
 
-    Student_CommonWidgets(StudentAccManagement_frame, student, StudentName, StudentClass, color)
+    S_CommonWidgets(StudentAccManagement_frame, student, StudentName, StudentClass, color)
 
-    ctk.CTkLabel(StudentAccManagement_frame, text ='First name', text_color='white', font=('Franklin Gothic Condensed', 20), fg_color=default_color).place(x=340, y=200)
-    FirstName_entry =  ctk.CTkEntry(StudentAccManagement_frame)
-    FirstName_entry.insert(0,student.student_first_name)
-    FirstName_entry.place(x=440, y=200)
+    PageTitle = ctk.CTkButton(StudentAccManagement_frame, text='Account Details', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', hover='disabled')
+    PageTitle.place(x=250, y=100)
 
-    ctk.CTkLabel(StudentAccManagement_frame, text ='Last name', text_color='white',font=('Franklin Gothic Condensed', 20), fg_color=default_color).place(x=340, y=225)
-    LastName_entry = ctk.CTkEntry(StudentAccManagement_frame)
-    LastName_entry.insert(0,student.student_last_name)
-    LastName_entry.place(x=440, y=225)
+    details_frame = ctk.CTkFrame(StudentAccManagement_frame, fg_color=default_color)
+    details_frame.place(x=250, y=250)
 
-    #!!Add more fields!! 
+    ctk.CTkLabel(details_frame, text ='First name', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color).grid(row=0, column=0, padx=30, pady=20)
+    ctk.CTkLabel(details_frame, text ='Last name', text_color='white',font=('Franklin Gothic Condensed', 30), fg_color=default_color).grid(row=0, column=3, padx=30, pady=20)
+    ctk.CTkLabel(details_frame, text ='ID number', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color).grid(row=1, column=0, padx=30, pady=20)
+    ctk.CTkLabel(details_frame, text ='Password', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color).grid(row=2, column=0, padx=30, pady=20)
+    ctk.CTkLabel(details_frame, text ='Class', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color).grid(row=1, column=3, padx=30, pady=20)
+    ctk.CTkLabel(details_frame, text ='House', text_color='white', font=('Franklin Gothic Condensed', 30), fg_color=default_color).grid(row=2, column=3, padx=30, pady=20)
 
-    ctk.CTkButton(StudentAccManagement_frame, text='Submit', command=lambda:student.UpdateStudentFields(FirstName_entry, LastName_entry, student)).place(x=500, y=300)
 
-def ViewPurchaseHistoryPage(student, StudentName, StudentClass, color):
+    FirstName_entry =  ctk.CTkEntry(details_frame, font=('franklin gothic condensed', 20))
+    FirstName_entry.insert(0, student.student_first_name)
+    FirstName_entry.grid(row=0, column=1, padx=30, pady=20)
+
+    LastName_entry = ctk.CTkEntry(details_frame, font=('franklin gothic condensed', 20))
+    LastName_entry.insert(0, student.student_last_name)
+    LastName_entry.grid(row=0, column=4, padx=30, pady=20) 
+
+    Id_entry = ctk.CTkEntry(details_frame, font=('franklin gothic condensed', 20))
+    Id_entry.insert(0, student.student_id)
+    Id_entry.grid(row=1, column=1, padx=30, pady=20)
+
+    password_entry = ctk.CTkButton(details_frame, text="********", text_color='black', font=('franklin gothic condensed', 20), fg_color='white', border_width=3, border_color='dark grey', hover='disabled')
+    password_entry.grid(row=2, column=1, padx=(30, 0), pady=20)
+
+    show_btn = ctk.CTkButton(details_frame, text='Show password', command=lambda:Toggle(password_entry, show_btn, student), font=('franklin gothic condensed', 17))
+    show_btn.grid(row=2, column=2, padx=(0, 30))
+
+    selected_class = ctk.StringVar()
+    year_groups = ["9A", "9B", "9C", "9D", "10A", "10B", "10C", "10D", "11A", "11B", "11C", "11D", "12A", "12B", "12C", "12D", "13A", "13B", "13C", "13D"]
+    classcombobox = ctk.CTkComboBox(details_frame, values=year_groups,state='readonly', variable=selected_class)
+    classcombobox.grid(row=1, column=4, padx=30, pady=20)
+    classcombobox.set(student.student_grade)
+    classcombobox.configure(font=('franklin gothic condensed', 20))
+
+    selected_house = ctk.StringVar()
+    houses = ["Gazelles", "Oryxes","Foxes","Falcons"]
+    housecombobox = ctk.CTkComboBox(details_frame, values=houses, state='readonly', variable=selected_house)
+    housecombobox.grid(row=2, column=4, padx=30, pady=20)
+    housecombobox.set(GetHouseName(student.student_houseId))
+    housecombobox.configure(font=('franklin gothic condensed', 20))    
+
+    update_password_btn = ctk.CTkButton(details_frame, text='Update Password', command=lambda:S_UpdatePasswordPage(student), text_color='black', font=('franklin gothic condensed', 20), fg_color='white', border_width=3, border_color='dark grey')
+    update_password_btn.grid(row=3, column=1, padx=30, pady=20)
+
+    update_details_btn = ctk.CTkButton(details_frame, text='Change details', command=lambda:student.UpdateFields(Id_entry, FirstName_entry, LastName_entry, selected_class.get(), selected_house.get(), student), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='dark grey')
+    update_details_btn.grid(row=3, column=2, padx=30, pady=20)
+
+def S_UpdatePasswordPage(student):
+    password_window = ctk.CTkToplevel(window, fg_color=default_color)
+    password_window.geometry('400x350')
+    password_window.title('Update Password')
+    password_window.attributes('-topmost', True)
+    password_window.resizable(False, False)
+
+    ctk.CTkLabel(password_window, text='Enter your new password', font=('Franklin Gothic Condensed', 35), text_color='white', fg_color=default_color).pack(pady=30)
+
+    frame = ctk.CTkFrame(password_window, fg_color=default_color)
+    frame.pack()
+
+    ctk.CTkLabel(frame, text='New password', font=('Franklin Gothic Condensed', 25), text_color='white', fg_color=default_color).grid(row=1, column=0, padx=20, pady=15)
+    ctk.CTkLabel(frame, text='Confirm password', font=('Franklin Gothic Condensed', 25), text_color='white', fg_color=default_color).grid(row=2, column=0, padx=20, pady=15)
+
+    entry1 = ctk.CTkEntry(frame, font=('Franklin Gothic Condensed', 17))
+    entry1.grid(row=1, column=1, padx=20, pady=15)
+
+    entry2 = ctk.CTkEntry(frame, font=('Franklin Gothic Condensed', 17))
+    entry2.grid(row=2, column=1, padx=20, pady=15)
+
+    submit_btn = ctk.CTkButton(frame, text='Submit', command=lambda:Student.UpdatePassword(student, entry1.get(), entry2.get(), password_window), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='grey')
+    submit_btn.grid(row=3, column=1, pady=20)
+
+    cancel_btn = ctk.CTkButton(frame, text='Cancel', command=password_window.destroy, font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='grey')
+    cancel_btn.grid(row=3, column=0, pady=20)
+
+##Inprogress(current)
+def S_LeaderboardsPage(student, StudentName, StudentClass,  color):
+    RemoveWidgets()
+    LeaderboardsPage_frame = ctk.CTkFrame(window, fg_color=default_color)
+    LeaderboardsPage_frame.pack(fill='both', expand=True)
+
+    S_CommonWidgets(LeaderboardsPage_frame, student, StudentName, StudentClass,  color)
+
+    page_frame = ctk.CTkFrame(LeaderboardsPage_frame, fg_color=default_color, width=1000, height=600)
+    page_frame.place(x=200, y=75)
+
+    Pagetitle = ctk.CTkButton(page_frame, text='Leaderboard', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled')
+    Pagetitle.place(x=50, y=20)
+
+    StudentsLeaderboard(page_frame)
+    
+    gazelles_leaderboard = ctk.CTkButton(LeaderboardsPage_frame, text='Gazelles', command=lambda:SelectedHouseLeadeboard(page_frame, 1), text_color='black', font=('Franklin Gothic Condensed', 40), fg_color='white', border_width=2, border_color='black', width=160, height=60)
+    gazelles_leaderboard.place(x=275, y=200)
+
+    oryxes_leaderboard = ctk.CTkButton(LeaderboardsPage_frame, text='Oryxes', command=lambda:SelectedHouseLeadeboard(page_frame, 2), text_color='black', font=('Franklin Gothic Condensed', 40), fg_color='white', border_width=2, border_color='black', width=160, height=60)
+    oryxes_leaderboard.place(x=475, y=200)
+
+    foxes_leaderboard = ctk.CTkButton(LeaderboardsPage_frame, text='Foxes', command=lambda:SelectedHouseLeadeboard(page_frame, 3), text_color='black', font=('Franklin Gothic Condensed', 40), fg_color='white', border_width=2, border_color='black', width=160, height=60)
+    foxes_leaderboard.place(x=675, y=200)
+
+    falcons_leaderboard = ctk.CTkButton(LeaderboardsPage_frame, text='Falcons', command=lambda:SelectedHouseLeadeboard(page_frame, 4), text_color='black', font=('Franklin Gothic Condensed', 40), fg_color='white', border_width=2, border_color='black', width=160, height=60)
+    falcons_leaderboard.place(x=875, y=200)
+
+    def SelectedRanking(event):
+        if event == "House Rankings":
+            HousesLeaderboard(page_frame)
+        else:
+            StudentsLeaderboard(page_frame)
+
+    options = ["House Rankings", "Student Rankings"]
+    rankingscombobox = ctk.CTkComboBox(LeaderboardsPage_frame, values=options,state='readonly', command=SelectedRanking, width=200)
+    rankingscombobox.place(x=600, y=125)
+    rankingscombobox.set("Student Rankings")
+    rankingscombobox.configure(font=('franklin gothic condensed', 20))
+
+
+def SelectedHouseLeadeboard(frame, input):
+    for widget in frame.winfo_children():
+        widget.destroy()
+
+    if input == 1 or input == 2 or input == 3 or input == 4:
+        if input == 1:
+            ctk.CTkButton(frame, text='Gazelles Leaderboard', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled').place(x=50, y=20)
+        elif input == 2:
+            ctk.CTkButton(frame, text='Oryxes Leaderboard', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled').place(x=50, y=20)
+        elif input == 3:
+            ctk.CTkButton(frame, text='Foxes Leaderboard', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled').place(x=50, y=20)
+        elif input == 4:
+            ctk.CTkButton(frame, text='Falcons Leaderboard', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled').place(x=50, y=20)
+
+        list_frame = ctk.CTkScrollableFrame(frame, fg_color=default_color, border_width=2, border_color='black', width=700, height=550)    
+        list_frame.place(x=85, y=200)
+
+        columns = ["Position", "Student ID", "Student name", "Points"]
+        for i in range(4):
+            ctk.CTkButton(list_frame, text=columns[i], font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=175, height=40, hover='disabled').grid(row=0, column=i)
+        
+        students_in_house = cursor.execute("SELECT student_id FROM Student WHERE house_id = ? ORDER BY total_points DESC", (input,)).fetchall()
+        for i in range(len(students_in_house)):
+            cursor.execute("UPDATE Student SET position_in_house = ? WHERE student_id = ?", (i+1, students_in_house[i][0]))
+            conn.commit()
+
+        records = cursor.execute("SELECT position_in_house, student_id, first_name, last_name, total_points FROM Student WHERE house_id = ? ORDER BY position_in_house ASC", (input,)).fetchall()
+        for i in range(len(records)):
+            ctk.CTkButton(list_frame, text=records[i][0], text_color='black', font=('Franklin Gothic Condensed', 17), fg_color='light grey', border_width=2, width=175, height=20, hover='disabled').grid(row=i+1, column=0)
+            ctk.CTkButton(list_frame, text=records[i][1], text_color='black', font=('Franklin Gothic Condensed', 17), fg_color='light grey', border_width=2, width=175, height=20, hover='disabled').grid(row=i+1, column=1)
+            ctk.CTkButton(list_frame, text=str(records[i][2]+' '+records[i][3]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=175, height=20, hover='disabled').grid(row=i+1, column=2)      
+            ctk.CTkButton(list_frame, text=records[i][4], text_color='black', font=('Franklin Gothic Condensed', 17), fg_color='light grey', border_width=2, width=175, height=20, hover='disabled').grid(row=i+1, column=3)
+
+def StudentsLeaderboard(frame):
+    for widget in frame.winfo_children():
+        widget.destroy()
+    
+    Pagetitle = ctk.CTkButton(frame, text='Student Leaderboard', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled')
+    Pagetitle.place(x=50, y=20)
+
+    list_frame = ctk.CTkScrollableFrame(frame, fg_color=default_color, border_width=2, border_color='black', width=700, height=550)    
+    list_frame.place(x=85, y=200)
+
+    students = cursor.execute("SELECT student_id FROM Student ORDER BY total_points DESC").fetchall()
+    for i in range(len(students)):
+        cursor.execute("UPDATE Student SET leaderboard_position = ? WHERE student_id = ?", (i+1, students[i][0]))
+        conn.commit()
+
+    columns = ["Position", "Student ID", "Student name", "House", "Points"]
+    for i in range(5):
+        ctk.CTkButton(list_frame, text=columns[i], font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='dark grey', border_width=2, width=140, height=40, hover='disabled').grid(row=0, column=i)
+
+    records = cursor.execute("SELECT leaderboard_position, student_id, first_name, last_name, house_id, total_points FROM Student ORDER BY leaderboard_position ASC").fetchall()
+    for i in range(len(records)):
+        ctk.CTkButton(list_frame, text=records[i][0], text_color='black', font=('Franklin Gothic Condensed', 17), fg_color='light grey', border_width=2, width=140, height=20, hover='disabled').grid(row=i+1, column=0)
+        ctk.CTkButton(list_frame, text=records[i][1], text_color='black', font=('Franklin Gothic Condensed', 17), fg_color='light grey', border_width=2, width=140, height=20, hover='disabled').grid(row=i+1, column=1)
+        ctk.CTkButton(list_frame, text=str(records[i][2]+' '+records[i][3]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='light grey', border_width=2, width=140, height=20, hover='disabled').grid(row=i+1, column=2)      
+        ctk.CTkButton(list_frame, text=GetHouseName(records[i][4]), text_color='black', font=('Franklin Gothic Condensed', 17), fg_color='light grey', border_width=2, width=140, height=20, hover='disabled').grid(row=i+1, column=3)
+        ctk.CTkButton(list_frame, text=records[i][5], text_color='black', font=('Franklin Gothic Condensed', 17), fg_color='light grey', border_width=2, width=140, height=20, hover='disabled').grid(row=i+1, column=4)
+
+def HousesLeaderboard(frame):
+    for widget in frame.winfo_children():
+        widget.destroy()
+    
+    Pagetitle = ctk.CTkButton(frame, text='House Leaderboard', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled')
+    Pagetitle.place(x=50, y=20)
+
+    list_frame = ctk.CTkScrollableFrame(frame, fg_color=default_color, border_width=2, border_color='black', width=700, height=550)    
+    list_frame.place(x=85, y=200)
+
+    columns = ["Position", "House", "Total Points"]
+    for i in range(3):
+        ctk.CTkButton(list_frame, text=columns[i], font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='dark grey', border_width=2, width=233, height=40, hover='disabled').grid(row=0, column=i)
+
+    houses = cursor.execute("SELECT house_id FROM House ORDER BY house_totalpoints DESC").fetchall()
+    for i in range(len(houses)):
+        cursor.execute("UPDATE House SET house_leaderboard_position = ? WHERE house_id = ?", (i+1, houses[i][0],))
+        conn.commit()
+
+    house_records = cursor.execute("SELECT house_leaderboard_position, house_name, house_totalpoints FROM House ORDER BY house_totalpoints DESC").fetchall()
+    for i in range(len(house_records)):
+        for j in range(3):
+            ctk.CTkButton(list_frame, text=house_records[i][j], font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=233, height=40, hover='disabled').grid(row=i+1, column=j)
+
+def S_PurchaseHistoryPage(student, StudentName, StudentClass, color):
     RemoveWidgets()
     Records = cursor.execute("SELECT purchase_id, token_name, purchase_date FROM Purchase_token JOIN Token ON Token.token_id = Purchase_token.token_id").fetchall()
     PurchaseHistory_frame = ctk.CTkFrame(window, fg_color=default_color)
     PurchaseHistory_frame.pack(fill='both', expand=True)
 
-    Student_CommonWidgets(PurchaseHistory_frame, student, StudentName, StudentClass, color)
+    S_CommonWidgets(PurchaseHistory_frame, student, StudentName, StudentClass, color)
 
-    PageTitle_label = ctk.CTkButton(PurchaseHistory_frame, text='My Purchases', font=('Franklin Gothic Condensed', 50), text_color='black', fg_color='white', border_width=2, width=400, height=50, hover='disabled')
+    PageTitle_label = ctk.CTkButton(PurchaseHistory_frame, text='My Purchases', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=400, height=50, hover='disabled')
     PageTitle_label.place(x=245, y=100)
 
     Records_frame = ctk.CTkScrollableFrame(window, fg_color=default_color, bg_color=default_color, border_width=2, border_color='black', width=700, height=450)
     Records_frame.place(x=245, y=190)
 
-    column1 = ctk.CTkButton(Records_frame, text='Purchase ID', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='grey', border_width=2, width=233, height=20, hover='disabled')
-    column1.grid(row=0, column=0)
-
-    column2 = ctk.CTkButton(Records_frame, text='Token', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='grey', border_width=2, width=233, height=20, hover='disabled')
-    column2.grid(row=0, column=1)
-    
-    column3 = ctk.CTkButton(Records_frame, text='Date Purchased', font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='grey', border_width=2, width=233, height=20, hover='disabled')
-    column3.grid(row=0, column=2)
+    columns = ['Purchase ID', 'Token', 'Date Purchased']
+    for i in range(3):
+        column = ctk.CTkButton(Records_frame, text=columns[i], font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='dark grey', border_width=2, width=233, height=40, hover='disabled')
+        column.grid(row=0, column=i)
 
     for i, record in enumerate(Records):
         for j, value in enumerate(record):
             button = ctk.CTkButton(Records_frame, text=f'{value}', text_color='black', font=('Franklin Gothic Condensed', 17), fg_color='light grey', border_width=2, width=233, height=20, hover='disabled')
             button.grid(row=i+1, column=j)
 
-def TokenShopPage(student, StudentName, StudentClass, color):
+##Inprogress(Current)
+def S_OwnedTokensPage(student, StudentName, StudentClass, color):
+    RemoveWidgets()
+    OwnedTokensPage_frame = ctk.CTkFrame(window, fg_color=default_color)
+    OwnedTokensPage_frame.pack(fill='both', expand=True)
+
+    S_CommonWidgets(OwnedTokensPage_frame, student, StudentName, StudentClass, color)
+    
+    PageTitle_label = ctk.CTkButton(OwnedTokensPage_frame, text='My Tokens', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled')
+    PageTitle_label.place(x=245, y=100)
+
+    tokens_frame = ctk.CTkScrollableFrame(OwnedTokensPage_frame, fg_color=default_color, border_width=2, border_color='black', width=700, height=450)
+    tokens_frame.place(x=300, y=300)
+
+    columns = ['Token', 'Total quantity', 'Last purchase date']
+    for i in range(3):
+        ctk.CTkButton(tokens_frame, text=columns[i], font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='dark grey', border_width=2, width=233, height=20, hover='disabled').grid(row=0, column=i)
+
+    StudentTokens = cursor.execute("SELECT token_id, quantity, last_purchase_date FROM Owned_tokens WHERE student_id = ?", (student.student_id,)).fetchall()
+    for i in range(len(StudentTokens)):
+        Token = cursor.execute("SELECT token_name FROM Token WHERE token_id = ?", (StudentTokens[i][0],)).fetchone()
+        ctk.CTkButton(tokens_frame, text=Token[0], font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=233, height=20, hover='disabled').grid(row=i+1, column=0)
+        for j in range(2):
+            ctk.CTkButton(tokens_frame, text=StudentTokens[i][j+1], font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=233, height=20, hover='disabled').grid(row=i+1, column=j+1)
+
+
+def S_PointRecordsPage(student, StudentName, StudentClass, color):
+    RemoveWidgets()
+    S_PointRecordsPage_frame = ctk.CTkFrame(window, fg_color=default_color)
+    S_PointRecordsPage_frame.pack(fill='both', expand=True)
+
+    S_CommonWidgets(S_PointRecordsPage_frame, student, StudentName, StudentClass, color)
+
+    PageTitle = ctk.CTkButton(S_PointRecordsPage_frame, text='My House Point records', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled')
+    PageTitle.place(x=250, y=100)
+
+    Records_frame = ctk.CTkScrollableFrame(S_PointRecordsPage_frame, fg_color=default_color, border_width=2, border_color='black', width=800, height=550)    
+    Records_frame.place(x=250, y=200)
+
+    column = ['Teacher ID', 'Teacher Name', 'Points\nAdded/Deducted', 'Date']
+    for i in range(4):
+        ctk.CTkButton(Records_frame, text=column[i], font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='dark grey', border_width=2, width=200, height=60, hover='disabled').grid(row=0, column=i)
+
+    Records = cursor.execute("SELECT teacher_id, points, date_created FROM House_points_record WHERE student_id = ?", (student.student_id,)).fetchall()
+    for i in range(len(Records)):
+        for j in range(2):
+            ctk.CTkButton(Records_frame, text=Records[i][0], font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=200, height=40, hover='disabled').grid(row=i+1, column=0)
+
+            name = cursor.execute("SELECT title, first_name, last_name FROM Teacher WHERE teacher_id = ?", (Records[i][0],)).fetchone()
+            fullname = (name[0] + ' ' + name[1] + name[2])
+            ctk.CTkButton(Records_frame, text=fullname, font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=200, height=40, hover='disabled').grid(row=i+1, column=1)
+
+    for i in range(len(Records)):
+        for j in range(1,3):
+            ctk.CTkButton(Records_frame, text=Records[i][j], font=('Franklin Gothic Condensed', 20), text_color='black', fg_color='light grey', border_width=2, width=200, height=40, hover='disabled').grid(row=i+1, column=j+1)
+
+def S_TokenShopPage(student, StudentName, StudentClass, color):
     RemoveWidgets()
     token_name = {1:"Dress code exemption", 2:"Cafeteria coupon", 3:"One day off", 4:"null"}
     Shop_frame = ctk.CTkFrame(window, fg_color=default_color)
     Shop_frame.pack(fill='both', expand=True)
 
-    Student_CommonWidgets(Shop_frame, student, StudentName, StudentClass, color)
+    S_CommonWidgets(Shop_frame, student, StudentName, StudentClass, color)
 
-    PageTitle_label = ctk.CTkButton(Shop_frame, text='Token Shop', font=('Franklin Gothic Condensed', 45), text_color='black', fg_color='white', border_width=2, width=250, height=50, hover='disabled')
-    PageTitle_label.place(x=245, y=90)
+    PageTitle_label = ctk.CTkButton(Shop_frame, text='Token Shop', font=('Franklin Gothic Condensed', 45), text_color='white', fg_color=default_color, border_width=2, border_color='white', width=250, height=50, hover='disabled')
+    PageTitle_label.place(x=245, y=95)
 
-    Token1_btn = ctk.CTkButton(Shop_frame, text='Dress Code\nExemption', command=lambda:ConfirmPurchaseWindow(student, token_name[1]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white',height= 120, width=120, border_width=1)
-    Token1_btn.place(x=400, y=190)
+    Tokens_frame = ctk.CTkFrame(Shop_frame, fg_color=default_color)
+    Tokens_frame.place(x=245, y=160)
 
-    Token1_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[1])))), text_color='white', font=('Franklin Gothic Condensed', 17), width=100, height=2)
-    Token1_desc.place(x=335, y=315)
+    Token1_btn = ctk.CTkButton(Tokens_frame, text='Dress Code\nExemption', command=lambda:S_ConfirmPurchaseWindow(student, token_name[1]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white',height= 120, width=150, border_width=1)
+    Token1_btn.grid(row=0, column=0, padx=100, pady=(50, 0))
 
-    Token2_btn = ctk.CTkButton(Shop_frame, text='Cafeteria\nCoupon', command=lambda:ConfirmPurchaseWindow(student, token_name[2]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white',height= 120, width=120, border_width=1)
-    Token2_btn.place(x=650, y=190)
+    Token1_desc = ctk.CTkLabel(Tokens_frame, text=('{}'.format(GetTokenDesc(1))), text_color='white', font=('Franklin Gothic Condensed', 17), width=100, height=2)
+    Token1_desc.grid(row=1, column=0, padx=100, pady=(10, 0))
 
-    Token2_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[2])))), text_color='white', font=('Franklin Gothic Condensed', 17), width=100, height=2)
-    Token2_desc.place(x=615, y=315)
+    Token2_btn = ctk.CTkButton(Tokens_frame, text='Cafeteria\nCoupon', command=lambda:S_ConfirmPurchaseWindow(student, token_name[2]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white',height= 120, width=150, border_width=1)
+    Token2_btn.grid(row=0, column=1, padx=50, pady=(50, 0))
 
-    Token3_btn = ctk.CTkButton(Shop_frame, text='1 day\noff', command=lambda:ConfirmPurchaseWindow(student, token_name[3]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white',height= 120, width=120, border_width=1)
-    Token3_btn.place(x=400, y=390)
+    Token2_desc = ctk.CTkLabel(Tokens_frame, text=('{}'.format(GetTokenDesc(2))), text_color='white', font=('Franklin Gothic Condensed', 17), width=100, height=2)
+    Token2_desc.grid(row=1, column=1, padx=50, pady=(10, 0))
 
-    Token3_desc = ctk.CTkLabel(Shop_frame, text=('{}'.format(GetTokenDesc(GetTokenId(token_name[3])))), text_color='white', font=('Franklin Gothic Condensed', 17), width=100, height=2)
-    Token3_desc.place(x=365, y=515)
+    Token3_btn = ctk.CTkButton(Tokens_frame, text='1 day\noff', command=lambda:S_ConfirmPurchaseWindow(student, token_name[3]), font=('Franklin Gothic Condensed', 17), text_color='black', fg_color='white',height= 120, width=150, border_width=1)
+    Token3_btn.grid(row=2, column=0, padx=100, pady=(50, 0))
 
-def ConfirmPurchaseWindow(student, token_name):
+    Token3_desc = ctk.CTkLabel(Tokens_frame, text=('{}'.format(GetTokenDesc(3))), text_color='white', font=('Franklin Gothic Condensed', 17), width=100, height=2)
+    Token3_desc.grid(row=3, column=0, padx=100, pady=(10, 0))
+
+def S_ConfirmPurchaseWindow(student, token_name):
     token_id = GetTokenId(token_name)
-    confirmPurchase_window = ctk.CTkToplevel(window, fg_color='light grey')
-    confirmPurchase_window.geometry('750x150')
+    confirmPurchase_window = ctk.CTkToplevel(window, fg_color='dark grey')
+    confirmPurchase_window.geometry('650x200')
     confirmPurchase_window.title('Confirm purchase')
+    confirmPurchase_window.attributes('-topmost', True)
     confirmPurchase_window.resizable(False, False)
 
-    ctk.CTkLabel(confirmPurchase_window, text=('Are you sure you want to purchase this "{}" token?').format(token_name), font=('Franklin Gothic Condensed', 17)).place(x=125, y=35)
+    frame = ctk.CTkFrame(confirmPurchase_window, fg_color='dark grey')
+    frame.pack()
 
-    confirm_btn = ctk.CTkButton(confirmPurchase_window, text='Yes', command=lambda: PurchaseAndClose(confirmPurchase_window, student, token_id))
-    confirm_btn.place(x=175, y=85)
+    ctk.CTkLabel(frame, text=('Are you sure you want to\npurchase this "{}" token?').format(token_name), font=('Franklin Gothic Condensed', 25)).grid(row=0, columnspan=2, pady=25)
 
-    cancel_btn = ctk.CTkButton(confirmPurchase_window, text='No', command=confirmPurchase_window.destroy)
-    cancel_btn.place(x=425, y=85)
+    confirm_btn = ctk.CTkButton(frame, text='Yes', command=lambda: PurchaseAndClose(confirmPurchase_window, student, token_id), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='grey')
+    confirm_btn.grid(row=1, column=0, padx=30, pady=15)
+
+    cancel_btn = ctk.CTkButton(frame, text='No', command=confirmPurchase_window.destroy, font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='grey')
+    cancel_btn.grid(row=1, column=1, padx=30, pady=15)
+
+def ConfirmLogout(user):
+    confirmLogout_window = ctk.CTkToplevel(window, fg_color='dark grey')
+    confirmLogout_window.geometry('600x150')
+    confirmLogout_window.title('Log Out?')
+    confirmLogout_window.attributes('-topmost', True)
+    confirmLogout_window.resizable(False, False)
+
+    frame = ctk.CTkFrame(confirmLogout_window, fg_color='dark grey')
+    frame.pack()
+
+    ctk.CTkLabel(frame, text=('Are you sure you want to log out?'), font=('Franklin Gothic Condensed', 25)).grid(row=0, columnspan=2, pady=25)
+
+    confirm_btn = ctk.CTkButton(frame, text='Yes', command=lambda: Logout(user), font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='grey')
+    confirm_btn.grid(row=1, column=0, padx=30, pady=15)
+
+    cancel_btn = ctk.CTkButton(frame, text='No', command=confirmLogout_window.destroy, font=('Franklin gothic condensed', 20), text_color='black', fg_color='white', border_width=3, border_color='grey')
+    cancel_btn.grid(row=1, column=1, padx=30, pady=15)
 
 def PurchaseAndClose(window, student, token_id):
     student.PurchaseToken(token_id)
-    StudentHomePage(student)
+    S_HomePage(student)
     window.destroy()
 
-def logout(user):
+def Logout(user):
     del user
     RemoveWidgets()
     Loginpage()
 
 if __name__ == "__main__":
-    # from House_points_database import database
-    # database()
+    from House_points_database import database
+    database()
     Loginpage()
     window.mainloop()
